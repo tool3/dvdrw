@@ -1,17 +1,10 @@
 @use '../../styles/mixins.scss' as *;
 
-.shell {
-  display: flex;
-  justify-content: center;
-  padding: var(--space-4) var(--space-4) 0;
-  position: relative;
-  z-index: 5;
-}
-
-/* The capsule itself. Slightly elevated above the cards beneath via a
-   tight glass-pill treatment + shadow. The horizontal padding is uneven
-   on purpose — tighter at the leading edge, more generous around the
-   trailing reset button so it reads as separate from the categories. */
+/* The capsule itself — embedded directly inside TopBar's center slot.
+   Slightly elevated via a tight glass-pill treatment + shadow. The
+   horizontal padding is uneven on purpose: tighter at the leading edge,
+   more generous around the trailing reset button so it reads as
+   separate from the categories. */
 .pill {
   @include glass-pill;
   display: flex;

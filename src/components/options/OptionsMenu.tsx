@@ -174,24 +174,22 @@ export const OptionsMenu = () => {
 
   return (
     <>
-      <div className={styles.shell}>
-        <div className={styles.pill} ref={pillRef}>
-          {(optionsSections as OptionsSection[]).map((section) => renderTab(section))}
+      <div className={styles.pill} ref={pillRef}>
+        {(optionsSections as OptionsSection[]).map((section) => renderTab(section))}
 
-          <span className={styles.divider} aria-hidden />
+        <span className={styles.divider} aria-hidden />
 
-          {renderTab(presetsSection, <PresetsIcon />)}
+        {renderTab(presetsSection, <PresetsIcon />)}
 
-          <Button
-            size="sm"
-            variant="ghost"
-            iconLeft={<ResetIcon />}
-            onClick={resetOptions}
-            title="Reset all customization options to defaults"
-          >
-            Reset
-          </Button>
-        </div>
+        <Button
+          size="sm"
+          variant="ghost"
+          iconLeft={<ResetIcon />}
+          onClick={resetOptions}
+          title="Reset all customization options to defaults"
+        >
+          Reset
+        </Button>
       </div>
 
       {activeSection && anchor && (

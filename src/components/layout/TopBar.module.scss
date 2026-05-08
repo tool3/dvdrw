@@ -65,9 +65,16 @@
   }
 }
 
+/* Center cluster holds two pills side-by-side: the Script/Cast view
+   switcher (compact) and the OptionsMenu pill (the wide one). They sit
+   on the same baseline as the brand and the theme toggle so the entire
+   chrome reads as a single horizontal row. */
 .center {
   display: flex;
+  align-items: center;
   justify-content: center;
+  gap: var(--space-3);
+  min-width: 0;
 }
 
 .right {

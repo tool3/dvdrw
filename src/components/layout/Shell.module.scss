@@ -1,6 +1,6 @@
 .shell {
   display: grid;
-  grid-template-rows: auto auto 1fr;
+  grid-template-rows: auto 1fr;
   height: 100%;
   /* No solid background here — the body's ambient gradient mesh shows
      through every glass surface. */

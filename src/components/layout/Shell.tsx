@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import styles from './Shell.module.scss';
 import { TopBar } from './TopBar';
-import { OptionsMenu } from '../options/OptionsMenu';
 
 interface ShellProps {
   /** Primary card on the left of the work area (editor / dropzone). */
@@ -13,15 +12,14 @@ interface ShellProps {
 }
 
 /**
- * Top-level layout. Three vertical bands:
- *   1. TopBar — brand, view switcher, theme/presets affordances.
- *   2. OptionsMenu — the floating glass pill of customization categories.
- *   3. Work area — two cards side-by-side per the requested split.
+ * Top-level layout. Two vertical bands:
+ *   1. TopBar — brand, Script/Cast switcher, OptionsMenu pill, theme toggle
+ *      all on the same row.
+ *   2. Work area — two cards side-by-side per the requested split.
  */
 export const Shell = ({ primary, secondary, split = '40-60' }: ShellProps) => (
   <div className={styles.shell}>
     <TopBar />
-    <OptionsMenu />
     <main className={[styles.main, styles[`split_${split}`]].join(' ')}>
       <section className={[styles.pane, styles.primary].join(' ')}>
         {primary}

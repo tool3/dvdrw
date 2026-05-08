@@ -1,6 +1,7 @@
 import { useAppStore } from '../../stores/appStore';
 import { Button } from '../primitives/Button';
 import { SegmentedControl } from '../primitives/Form';
+import { OptionsMenu } from '../options/OptionsMenu';
 import styles from './TopBar.module.scss';
 
 const ThemeIcon = ({ theme }: { theme: 'dark' | 'light' }) => {
@@ -86,6 +87,7 @@ export const TopBar = () => {
             { label: 'Cast', value: 'cast' },
           ]}
         />
+        <OptionsMenu />
       </div>
 
       <div className={styles.right}>
