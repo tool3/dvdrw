@@ -1,0 +1,136 @@
+@use '../../styles/mixins.scss' as *;
+
+.wrap {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  padding: var(--space-5);
+  gap: var(--space-4);
+}
+
+.intro {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.heading {
+  margin: 0;
+  font-size: var(--text-16);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+}
+
+.sub {
+  margin: 0;
+  font-size: var(--text-13);
+  color: var(--text-secondary);
+}
+
+.dropzone {
+  @include reset-button;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-8);
+  border: 1.5px dashed var(--border-default);
+  border-radius: var(--radius-3);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  position: relative;
+  transition: border-color var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+
+  &:hover {
+    border-color: var(--brand);
+    color: var(--text-primary);
+  }
+}
+
+.dropzoneHover {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+  color: var(--text-primary);
+}
+
+.dropIcon {
+  color: var(--text-muted);
+  margin-bottom: var(--space-2);
+}
+
+.dropTitle {
+  font-size: var(--text-14);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+}
+
+.dropSub {
+  font-size: var(--text-12);
+  color: var(--text-muted);
+}
+
+.fileInput {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  display: none;
+}
+
+.fileCard {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-3);
+}
+
+.fileIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-2);
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+
+.fileMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.fileName {
+  font-size: var(--text-13);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fileLabel {
+  font-size: var(--text-11);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.error {
+  font-size: var(--text-12);
+  color: var(--danger);
+  padding: var(--space-3);
+  border: 1px solid rgba(255, 107, 107, 0.32);
+  background: rgba(255, 107, 107, 0.06);
+  border-radius: var(--radius-2);
+}

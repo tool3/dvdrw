@@ -1,0 +1,244 @@
+/* ----------------------------------------------------------------------------
+ * Design tokens — VisionOS-inspired refined glass.
+ *
+ * The visual language: a deep midnight canvas with a subtle off-stage ambient
+ * gradient mesh, frosted-glass cards that catch a directional top-edge
+ * highlight, and long, low-opacity blue-tinted shadows that suggest a soft
+ * key light coming from up-and-to-the-left. The accent is a refined iris
+ * violet — a quieter evolution of the prior brand color.
+ * ------------------------------------------------------------------------- */
+
+:root {
+  /* Spacing scale */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* Radii — softer than before; cards lean generous */
+  --radius-1: 6px;
+  --radius-2: 10px;
+  --radius-3: 14px;
+  --radius-4: 20px;
+  --radius-5: 28px;
+  --radius-pill: 999px;
+
+  /* Typography
+     ----------
+     General Sans (Fontshare) for the UI — characterful premium grotesk.
+     JetBrains Mono for code & runtime — distinctive monospace.
+     System stacks fall back if the network fonts haven't loaded yet. */
+  --font-sans:
+    'General Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI Variable',
+    'Segoe UI', Helvetica, sans-serif;
+  --font-mono:
+    'JetBrains Mono', 'SF Mono', 'Menlo', 'Consolas', 'Roboto Mono', monospace;
+
+  --text-11: 11px;
+  --text-12: 12px;
+  --text-13: 13px;
+  --text-14: 14px;
+  --text-16: 16px;
+  --text-18: 18px;
+  --text-20: 20px;
+  --text-24: 24px;
+  --text-32: 32px;
+
+  --leading-tight: 1.2;
+  --leading-normal: 1.45;
+  --leading-relaxed: 1.6;
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --duration-fast: 140ms;
+  --duration-normal: 220ms;
+  --duration-slow: 360ms;
+}
+
+/* ----------------------------------------------------------------------------
+ * Dark theme — refined midnight glass, the default
+ * ------------------------------------------------------------------------- */
+
+:root,
+:root[data-theme='dark'] {
+  /* Canvas
+     ------
+     Near-black with a faint blue undertone. The ambient mesh in globals.scss
+     paints two off-screen radial gradients on top of this — one cool indigo
+     in the upper-left (matching the imagined key light), one warmer violet
+     in the lower-right — that the glass cards refract through their backdrop
+     filter. Without the mesh the canvas reads as flat charcoal; with it,
+     it picks up a quiet prismatic shimmer. */
+  --bg-canvas: #06080F;
+  --bg-base: #0A0D17;
+  --bg-elevated: #11151F;
+  --bg-elevated-2: #161B27;
+  --bg-input: rgba(255, 255, 255, 0.03);
+  --bg-hover: rgba(255, 255, 255, 0.05);
+  --bg-active: rgba(255, 255, 255, 0.08);
+  --bg-selected: rgba(166, 152, 255, 0.16);
+
+  /* Ambient mesh blob colors — used by globals.scss radial gradients */
+  --ambient-1: rgba(58, 86, 156, 0.34); /* cool indigo, upper-left */
+  --ambient-2: rgba(118, 76, 168, 0.22); /* deep violet, lower-right */
+  --ambient-3: rgba(34, 92, 122, 0.18);  /* faint teal, mid-right */
+
+  /* Glass surface variables — the language of cards and pills.
+     The trick: a very low alpha white background plus a backdrop-filter
+     blur reads as "frosted glass" against the ambient mesh. The top edge
+     gets a brighter inner highlight to suggest the off-canvas key light;
+     the bottom edge gets a faint inner shadow to ground the surface. */
+  --glass-bg: rgba(255, 255, 255, 0.04);
+  --glass-bg-strong: rgba(255, 255, 255, 0.06);
+  --glass-bg-hover: rgba(255, 255, 255, 0.07);
+  --glass-bg-active: rgba(255, 255, 255, 0.09);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-border-strong: rgba(255, 255, 255, 0.14);
+  --glass-highlight: rgba(255, 255, 255, 0.16);
+  --glass-shadow-inner: rgba(0, 0, 0, 0.32);
+
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-default: rgba(255, 255, 255, 0.10);
+  --border-strong: rgba(255, 255, 255, 0.16);
+
+  --text-primary: #F5F4FB;
+  --text-secondary: #B5B2C9;
+  --text-muted: #6E6C85;
+  --text-on-brand: #0A0810;
+
+  /* Accent — iris violet, refined evolution of #7C5FFF.
+     A bit cooler, a bit more luminous, easier on glass. */
+  --accent: #A698FF;
+  --accent-hover: #B6AAFF;
+  --accent-active: #9686F5;
+  --accent-soft: rgba(166, 152, 255, 0.16);
+  --accent-glow: rgba(166, 152, 255, 0.42);
+  --accent-ring: rgba(166, 152, 255, 0.55);
+
+  /* Semantic state colors, refined */
+  --danger: #FF7A8C;
+  --warning: #FFC472;
+  --success: #6BE6B4;
+
+  /* Shadows — angled, blue-tinted, never pure black.
+     The offset is intentionally to the right and down, suggesting an
+     off-canvas light source up-and-to-the-left. Shadows stack: a tight
+     close shadow + a long ambient shadow gives cards a sense of weight. */
+  --shadow-1:
+    2px 4px 12px -2px rgba(4, 6, 16, 0.5),
+    1px 2px 4px -1px rgba(4, 6, 16, 0.3);
+  --shadow-2:
+    6px 14px 28px -8px rgba(4, 6, 16, 0.6),
+    2px 6px 12px -2px rgba(4, 6, 16, 0.4);
+  --shadow-3:
+    16px 32px 64px -16px rgba(4, 6, 16, 0.7),
+    8px 16px 32px -8px rgba(4, 6, 16, 0.5);
+
+  /* Composite shadow used by glass cards: directional drop + top-edge
+     inner highlight + bottom-edge inner shadow */
+  --shadow-glass:
+    0 1px 0 0 rgba(255, 255, 255, 0.18) inset,
+    0 -1px 0 0 rgba(0, 0, 0, 0.32) inset,
+    8px 18px 36px -10px rgba(2, 4, 12, 0.7),
+    16px 32px 64px -16px rgba(2, 4, 12, 0.5);
+
+  --preview-checker-a: rgba(255, 255, 255, 0.025);
+  --preview-checker-b: rgba(255, 255, 255, 0.05);
+
+  /* Brand alias kept for backwards-compatibility while we migrate components */
+  --brand: var(--accent);
+  --brand-hover: var(--accent-hover);
+  --brand-active: var(--accent-active);
+  --brand-soft: var(--accent-soft);
+  --brand-ring: var(--accent-ring);
+}
+
+/* ----------------------------------------------------------------------------
+ * Light theme — pearl glass, warm-leaning
+ *
+ * The same idiom inverted: a very-near-white canvas with off-stage warm
+ * gradient blobs, near-white frosted cards with a darker top-edge stroke,
+ * shadows tinted toward warm slate (never pure black, which on white reads
+ * as muddy).
+ * ------------------------------------------------------------------------- */
+
+:root[data-theme='light'] {
+  --bg-canvas: #F4F3F8;
+  --bg-base: #FAFAFE;
+  --bg-elevated: #FFFFFF;
+  --bg-elevated-2: #F4F2F8;
+  --bg-input: rgba(255, 255, 255, 0.6);
+  --bg-hover: rgba(0, 0, 0, 0.04);
+  --bg-active: rgba(0, 0, 0, 0.07);
+  --bg-selected: rgba(124, 95, 255, 0.10);
+
+  --ambient-1: rgba(166, 152, 255, 0.20);
+  --ambient-2: rgba(255, 196, 114, 0.16);
+  --ambient-3: rgba(107, 230, 180, 0.12);
+
+  --glass-bg: rgba(255, 255, 255, 0.55);
+  --glass-bg-strong: rgba(255, 255, 255, 0.7);
+  --glass-bg-hover: rgba(255, 255, 255, 0.78);
+  --glass-bg-active: rgba(255, 255, 255, 0.86);
+  --glass-border: rgba(15, 15, 25, 0.06);
+  --glass-border-strong: rgba(15, 15, 25, 0.12);
+  --glass-highlight: rgba(255, 255, 255, 0.9);
+  --glass-shadow-inner: rgba(15, 15, 25, 0.06);
+
+  --border-subtle: rgba(15, 15, 25, 0.06);
+  --border-default: rgba(15, 15, 25, 0.10);
+  --border-strong: rgba(15, 15, 25, 0.18);
+
+  --text-primary: #14111F;
+  --text-secondary: #4F4B60;
+  --text-muted: #8E8AA0;
+  --text-on-brand: #FFFFFF;
+
+  --accent: #6A56F0;
+  --accent-hover: #5C49DF;
+  --accent-active: #4F3BD0;
+  --accent-soft: rgba(106, 86, 240, 0.10);
+  --accent-glow: rgba(106, 86, 240, 0.32);
+  --accent-ring: rgba(106, 86, 240, 0.45);
+
+  --danger: #D2444C;
+  --warning: #C97A1B;
+  --success: #1F9D55;
+
+  --shadow-1:
+    2px 4px 12px -2px rgba(28, 30, 60, 0.08),
+    1px 2px 4px -1px rgba(28, 30, 60, 0.04);
+  --shadow-2:
+    6px 14px 28px -8px rgba(28, 30, 60, 0.12),
+    2px 6px 12px -2px rgba(28, 30, 60, 0.06);
+  --shadow-3:
+    16px 32px 64px -16px rgba(28, 30, 60, 0.18),
+    8px 16px 32px -8px rgba(28, 30, 60, 0.10);
+
+  --shadow-glass:
+    0 1px 0 0 rgba(255, 255, 255, 0.85) inset,
+    0 -1px 0 0 rgba(15, 15, 25, 0.05) inset,
+    8px 18px 36px -10px rgba(28, 30, 60, 0.14),
+    16px 32px 64px -16px rgba(28, 30, 60, 0.08);
+
+  --preview-checker-a: rgba(15, 15, 25, 0.04);
+  --preview-checker-b: rgba(15, 15, 25, 0.08);
+
+  --brand: var(--accent);
+  --brand-hover: var(--accent-hover);
+  --brand-active: var(--accent-active);
+  --brand-soft: var(--accent-soft);
+  --brand-ring: var(--accent-ring);
+}

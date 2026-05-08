@@ -1,0 +1,16 @@
+.editor {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+}
+
+.editor :global(.cm-editor) {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+}
+
+.editor :global(.cm-editor.cm-focused) {
+  outline: none;
+}

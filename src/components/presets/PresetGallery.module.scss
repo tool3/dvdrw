@@ -1,0 +1,131 @@
+@use '../../styles/mixins.scss' as *;
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--duration-normal) var(--ease-out);
+  z-index: 50;
+}
+
+.overlayOpen {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.drawer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: min(480px, 100vw);
+  background: var(--bg-base);
+  border-left: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform var(--duration-normal) var(--ease-out);
+  box-shadow: var(--shadow-3);
+}
+
+.drawerOpen {
+  transform: translateX(0);
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: var(--space-5) var(--space-5) var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--text-18);
+  font-weight: var(--weight-semibold);
+}
+
+.sub {
+  margin: var(--space-1) 0 0 0;
+  font-size: var(--text-12);
+  color: var(--text-muted);
+}
+
+.close {
+  @include reset-button;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-1);
+  color: var(--text-secondary);
+
+  &:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  overflow-y: auto;
+}
+
+.card {
+  @include reset-button;
+  @include clickable-surface;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  text-align: left;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-3);
+
+  &:hover {
+    border-color: var(--brand);
+    transform: translateY(-1px);
+  }
+}
+
+.swatch {
+  display: block;
+  height: 86px;
+  border-radius: var(--radius-2);
+  position: relative;
+  overflow: hidden;
+}
+
+.swatchInner {
+  position: absolute;
+  inset: 12px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.cardBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.cardName {
+  font-size: var(--text-13);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+}
+
+.cardDesc {
+  font-size: var(--text-11);
+  color: var(--text-muted);
+  line-height: var(--leading-normal);
+}
