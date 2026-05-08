@@ -27,6 +27,9 @@ export interface RenderOptions {
   cursorStyle: CursorStyle;
   cursorBlink: boolean;
   cursorColor?: string;
+  /** Render the cursor at all. dvd-cli has no global flag for this, so when
+   *  false the runner injects a `\e[?25l` sequence before capture starts. */
+  cursorVisible: boolean;
 
   // Background (gradient or solid wrapping the terminal)
   background?: string;
@@ -62,6 +65,7 @@ export const DEFAULT_OPTIONS: RenderOptions = {
   cursorStyle: 'block',
   cursorBlink: true,
   cursorColor: undefined,
+  cursorVisible: true,
 
   background: undefined,
   backgroundPadding: 32,

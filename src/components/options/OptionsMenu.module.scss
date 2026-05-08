@@ -141,6 +141,65 @@
   -webkit-backdrop-filter: blur(28px) saturate(180%);
 }
 
+/* Mobile: the popover would otherwise overflow horizontally because the
+   JS anchors it to the centre of a tab inside a horizontally-scrolled
+   pill row. Pin it to the viewport edges with a small margin and cap
+   its height; the inline `left` and centering transform are overridden
+   here. The notch is pointed at the active tab in desktop only — on
+   mobile we hide it because the popover is no longer anchored. */
+@media (max-width: 720px) {
+  .popover {
+    /* stylelint-disable declaration-no-important */
+    left: var(--space-3) !important;
+    right: var(--space-3) !important;
+    width: auto !important;
+    max-width: calc(100vw - var(--space-6));
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;
+    transform: none !important;
+    /* stylelint-enable declaration-no-important */
+  }
+
+  .popoverWide {
+    width: auto !important; /* stylelint-disable-line declaration-no-important */
+  }
+
+  .popoverArrow {
+    display: none;
+  }
+
+  /* The pill row may not fit all 7+ tabs on a phone — let it scroll
+     horizontally instead of wrapping or shrinking the labels. */
+  .pill {
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
+  .tab {
+    flex: 0 0 auto;
+  }
+}
+
+/* Make the popover entry animation honour the override on mobile so the
+   browser doesn't snap-translate when the keyframe finishes. */
+@media (max-width: 720px) {
+  @keyframes popoverIn {
+    from {
+      opacity: 0;
+      transform: translateY(-8px) scale(0.96);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+}
+
 .popoverHeader {
   display: flex;
   flex-direction: column;

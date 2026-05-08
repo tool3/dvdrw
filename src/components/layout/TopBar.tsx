@@ -82,6 +82,7 @@ export const TopBar = () => {
         <SegmentedControl
           value={view}
           onChange={setView}
+          size="md"
           options={[
             { label: 'Script', value: 'script' },
             { label: 'Cast', value: 'cast' },

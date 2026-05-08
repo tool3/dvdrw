@@ -1,0 +1,150 @@
+@use '../../styles/mixins.scss' as *;
+
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  /* Cap the popover height — long theme lists shouldn't push the popover
+     past the viewport. The grid scrolls within. */
+  max-height: 70vh;
+  overflow-y: auto;
+  margin: -2px; /* reclaim space lost to scrollbar gutter */
+  padding: 2px;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: var(--text-11);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-2);
+}
+
+/* Individual theme card. The preview pane fills most of the card and
+   actually shows the theme's bg/fg so the user can compare side-by-side
+   instead of relying on the small label. */
+.card {
+  @include reset-button;
+  @include clickable-surface;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 6px 8px;
+  border-radius: var(--radius-2);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  text-align: left;
+
+  &:hover {
+    background: var(--glass-bg-hover);
+    border-color: var(--border-strong);
+  }
+
+  &:focus-visible {
+    @include focus-ring;
+  }
+}
+
+.cardSelected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow:
+    0 1px 0 0 rgba(255, 255, 255, 0.08) inset,
+    0 0 0 1px var(--accent-soft),
+    0 6px 14px -6px var(--accent-glow);
+
+  &:hover {
+    background: var(--accent-soft);
+  }
+}
+
+/* The terminal-y preview chip. Two short lines mimicking actual shell
+   output so the colors aren't abstract. Numbers are taken from the theme
+   itself so each card looks like a tiny live terminal. */
+.preview {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 8px 10px;
+  border-radius: var(--radius-1);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.4;
+  /* Inset shadow so the preview reads as recessed glass — matches the
+     overall depth language. */
+  box-shadow:
+    0 1px 0 0 rgba(255, 255, 255, 0.08) inset,
+    0 -1px 0 0 rgba(0, 0, 0, 0.18) inset;
+  /* Hide overflow if a label wraps */
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.previewLine {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.label {
+  font-size: var(--text-12);
+  font-weight: var(--weight-medium);
+  letter-spacing: -0.005em;
+  color: var(--text-primary);
+  padding: 0 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Hover-revealed action slot for custom theme cards. Sits in the top-
+   right corner of the card so it doesn't compete with the preview. */
+.actionSlot {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-out);
+
+  .card:hover &,
+  .card:focus-within & {
+    opacity: 1;
+  }
+}
+
+.actionBtn {
+  @include reset-button;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-1);
+  background: rgba(0, 0, 0, 0.5);
+  color: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.7);
+    color: #ffffff;
+  }
+}

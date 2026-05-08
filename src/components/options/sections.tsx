@@ -1,5 +1,4 @@
-import { useMemo, type ReactNode } from 'react';
-import { themes as builtinThemes } from 'dvdrw';
+import { type ReactNode } from 'react';
 import { useOptionsStore } from '../../stores/optionsStore';
 import { PRESETS } from '../../lib/presets';
 import {
@@ -11,6 +10,7 @@ import {
   Switch,
   TextInput,
 } from '../primitives/Form';
+import { ThemePicker } from './ThemePicker';
 import sectionStyles from './sections.module.scss';
 
 /**
@@ -37,22 +37,8 @@ export interface OptionsSection {
 const StyleSection = () => {
   const options = useOptionsStore((s) => s.options);
   const set = useOptionsStore((s) => s.set);
-  const themeOptions = useMemo(
-    () =>
-      Object.keys(builtinThemes as object)
-        .sort((a, b) => a.localeCompare(b))
-        .map((name) => ({ label: name, value: name })),
-    [],
-  );
   return (
     <>
-      <Field label="Theme">
-        <Select
-          value={options.theme}
-          onChange={(e) => set('theme', e.target.value)}
-          options={themeOptions}
-        />
-      </Field>
       <Field label="Window">
         <SegmentedControl
           value={options.template}
@@ -109,6 +95,8 @@ const TypeSection = () => {
         <NumberInput
           value={options.letterSpacing}
           onChange={(v) => set('letterSpacing', v)}
+          min={-2}
+          max={6}
           step={0.1}
           suffix="px"
         />
@@ -127,6 +115,7 @@ const FrameSection = () => {
           value={options.padding}
           onChange={(v) => set('padding', v)}
           min={0}
+          max={64}
           suffix="px"
         />
       </Field>
@@ -135,6 +124,7 @@ const FrameSection = () => {
           value={options.borderRadius}
           onChange={(v) => set('borderRadius', v)}
           min={0}
+          max={32}
           suffix="px"
         />
       </Field>
@@ -175,6 +165,13 @@ const CursorSection = () => {
           ]}
         />
       </Field>
+      <Field label="Show" layout="inline">
+        <Switch
+          checked={options.cursorVisible}
+          onChange={(v) => set('cursorVisible', v)}
+          ariaLabel="Show cursor"
+        />
+      </Field>
       <Field label="Blink" layout="inline">
         <Switch
           checked={options.cursorBlink}
@@ -213,6 +210,7 @@ const BackgroundSection = () => {
           value={options.backgroundPadding}
           onChange={(v) => set('backgroundPadding', v)}
           min={0}
+          max={128}
           suffix="px"
         />
       </Field>
@@ -221,6 +219,7 @@ const BackgroundSection = () => {
           value={options.backgroundRadius}
           onChange={(v) => set('backgroundRadius', v)}
           min={0}
+          max={64}
           suffix="px"
         />
       </Field>
@@ -265,6 +264,7 @@ const AnimationSection = () => {
           value={options.pauseAtEnd}
           onChange={(v) => set('pauseAtEnd', v)}
           min={0}
+          max={5000}
           step={50}
           suffix="ms"
         />
@@ -338,6 +338,7 @@ const PresetsSection = ({ onApplied }: { onApplied?: () => void }) => {
 };
 
 export const optionsSections: OptionsSection[] = [
+  { id: 'theme', label: 'Theme', body: <ThemePicker />, wide: true },
   { id: 'style', label: 'Style', body: <StyleSection /> },
   { id: 'type', label: 'Type', body: <TypeSection /> },
   { id: 'frame', label: 'Frame', body: <FrameSection /> },

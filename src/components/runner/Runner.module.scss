@@ -407,19 +407,27 @@
    ANSI-styled terminal output rendered atop a subtle inner glow that
    suggests a real CRT. */
 .console {
-  margin: 0;
+  /* Inset slightly from the card so the rounded top corners read as a
+     distinct surface — like a small terminal screen recessed into the
+     larger glass card. The horizontal margin keeps it visually attached
+     to the card's body but not flush with the edges. */
+  margin: 0 var(--space-3) var(--space-3);
   font-family: var(--font-mono);
   font-size: var(--text-11);
   line-height: 1.6;
   background: #060810;
   color: #c8c8c8;
-  border-top: 1px solid var(--glass-border);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: var(--radius-3);
   padding: var(--space-3) var(--space-4);
   height: 200px;
   overflow-y: auto;
   white-space: pre-wrap;
   word-break: break-word;
-  box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.03) inset;
+  box-shadow:
+    0 1px 0 0 rgba(255, 255, 255, 0.05) inset,
+    0 -1px 0 0 rgba(0, 0, 0, 0.4) inset,
+    0 4px 14px -4px rgba(0, 0, 0, 0.5);
 
   span {
     font: inherit;

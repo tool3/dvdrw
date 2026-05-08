@@ -38,3 +38,29 @@
   /* Each pane is intended to host a single glass card; we don't paint a
      background here so the card's own backdrop-filter sees the body. */
 }
+
+/* Mobile / narrow tablet: stack the two cards into a single column. The
+   minmax(360px, …) base columns force horizontal overflow on phones, so
+   below ~960px we collapse to a single column with auto-sized rows. The
+   primary card (editor) keeps a comfortable height; secondary fills what
+   remains. Padding tightens a bit so cards keep their floating feel. */
+@media (max-width: 960px) {
+  .main,
+  .split_40-60,
+  .split_50-50,
+  .split_60-40 {
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-rows: minmax(280px, auto);
+    padding: var(--space-3) var(--space-3) var(--space-4);
+    gap: var(--space-3);
+    /* Allow the page to scroll vertically through both cards rather than
+       cramming them into the viewport with two scrollbars stacked. */
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  .pane {
+    /* Don't let either pane collapse below a usable height when stacked. */
+    min-height: 360px;
+  }
+}

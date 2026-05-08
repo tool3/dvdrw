@@ -108,34 +108,132 @@
   pointer-events: none;
 }
 
-/* ----------------------------- NumberInput ------------------------------- */
+/* ----------------------------- NumberInput / Slider --------------------------
+   Numeric inputs render as sliders. The track sits on the same glass-input
+   surface as TextInput so they read as part of the same form family; an
+   accent-tinted fill marks progress and a slim accent thumb indicates the
+   value. The native <input type="range"> is layered on top transparently
+   so it owns hit-testing, keyboard nav, and accessibility. Touch targets
+   are 28px tall to be comfortable on phones. */
 
-.numberWrap {
-  position: relative;
+.sliderWrap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   width: 100%;
+  min-width: 0;
 }
 
-.numberInput {
-  @extend %inputBase;
-  font-variant-numeric: tabular-nums;
+.sliderTrack {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  border-radius: var(--radius-2);
+  background: var(--bg-input);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.04) inset;
+  overflow: hidden;
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
 
-  &::-webkit-outer-spin-button,
-  &::-webkit-inner-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
+  &:hover {
+    border-color: var(--border-strong);
+    background: var(--glass-bg-hover);
   }
-  -moz-appearance: textfield;
+
+  &:focus-within {
+    border-color: var(--accent);
+    box-shadow:
+      0 1px 0 0 rgba(255, 255, 255, 0.04) inset,
+      0 0 0 4px var(--accent-soft);
+  }
 }
 
-.numberSuffix {
+.sliderFill {
   position: absolute;
-  right: var(--space-3);
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: var(--text-11);
-  color: var(--text-muted);
+  inset: 0 auto 0 0;
+  background: var(--accent-soft);
   pointer-events: none;
+  transition: width var(--duration-fast) var(--ease-out);
+}
+
+.sliderInput {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+
+  &::-webkit-slider-runnable-track {
+    height: 100%;
+    background: transparent;
+  }
+  &::-moz-range-track {
+    height: 100%;
+    background: transparent;
+  }
+
+  &::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 4px;
+    height: 22px;
+    margin-top: 1px;
+    background: var(--accent);
+    border: none;
+    border-radius: 2px;
+    cursor: grab;
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.18) inset,
+      0 2px 6px var(--accent-glow);
+    transition:
+      transform var(--duration-fast) var(--ease-spring),
+      box-shadow var(--duration-fast) var(--ease-out);
+  }
+  &::-moz-range-thumb {
+    width: 4px;
+    height: 22px;
+    background: var(--accent);
+    border: none;
+    border-radius: 2px;
+    cursor: grab;
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.18) inset,
+      0 2px 6px var(--accent-glow);
+  }
+
+  &:hover::-webkit-slider-thumb {
+    transform: scaleY(1.08);
+  }
+  &:active::-webkit-slider-thumb {
+    cursor: grabbing;
+    transform: scaleY(1.12);
+  }
+
+  &:focus-visible {
+    outline: none;
+  }
+}
+
+.sliderValue {
+  flex-shrink: 0;
+  min-width: 42px;
+  padding-left: 2px;
+  font-size: var(--text-12);
+  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  text-align: right;
+  letter-spacing: -0.01em;
 }
 
 /* ----------------------------- TextInput --------------------------------- */
@@ -151,30 +249,6 @@
   align-items: center;
   gap: var(--space-2);
   width: 100%;
-}
-
-.colorSwatch {
-  position: relative;
-  flex: 0 0 auto;
-  width: 34px;
-  height: 34px;
-  border-radius: var(--radius-2);
-  border: 1px solid var(--glass-border-strong);
-  cursor: pointer;
-  overflow: hidden;
-  box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.12) inset;
-  background-image: linear-gradient(45deg, var(--preview-checker-a) 25%, transparent 25%),
-    linear-gradient(-45deg, var(--preview-checker-a) 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, var(--preview-checker-a) 75%),
-    linear-gradient(-45deg, transparent 75%, var(--preview-checker-a) 75%);
-  background-size: 8px 8px;
-}
-
-.colorNative {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  cursor: pointer;
 }
 
 .colorText {
@@ -244,21 +318,38 @@
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-pill);
-  padding: 3px;
   gap: 2px;
   box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.06) inset;
+}
+
+/* Size variants. `sm` is in-popover form-field scale (32px tall); `md`
+   matches the OptionsMenu pill so they can sit shoulder-to-shoulder in
+   the top bar (~44px outer). */
+.segmented_sm {
+  padding: 3px;
+}
+.segmented_md {
+  padding: 6px;
+  /* Match the glass-pill treatment from the OptionsMenu so the Script/
+     Cast switcher visually belongs to the same family — a subtle frosted
+     surface with the same edge highlight. */
+  background: var(--glass-bg-strong);
+  border-color: var(--glass-border);
+  box-shadow:
+    0 1px 0 0 var(--glass-highlight) inset,
+    0 -1px 0 0 var(--glass-shadow-inner) inset,
+    var(--shadow-1);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
 }
 
 .segment {
   @include reset-button;
   flex: 1;
-  height: 26px;
-  font-size: var(--text-12);
   font-weight: var(--weight-medium);
   letter-spacing: -0.005em;
   color: var(--text-secondary);
   border-radius: var(--radius-pill);
-  padding: 0 var(--space-4);
   transition:
     background-color var(--duration-fast) var(--ease-out),
     color var(--duration-fast) var(--ease-out),
@@ -267,6 +358,18 @@
   &:hover {
     color: var(--text-primary);
   }
+}
+
+.segment_sm {
+  height: 26px;
+  font-size: var(--text-12);
+  padding: 0 var(--space-4);
+}
+
+.segment_md {
+  height: 32px;
+  font-size: var(--text-13);
+  padding: 0 18px;
 }
 
 .segmentActive {

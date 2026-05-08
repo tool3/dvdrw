@@ -2,8 +2,8 @@ import {
   type ChangeEvent,
   type ReactNode,
   type SelectHTMLAttributes,
-  useId,
 } from 'react';
+import { ColorPicker } from './ColorPicker';
 import styles from './Form.module.scss';
 
 /* -------------------------------------------------------------------------- */
@@ -64,12 +64,21 @@ export const Select = ({ options, className, ...rest }: SelectProps) => (
 interface NumberInputProps {
   value: number;
   onChange: (value: number) => void;
-  min?: number;
-  max?: number;
+  /** Required: slider needs a finite range. */
+  min: number;
+  max: number;
   step?: number;
   suffix?: string;
+  /** Custom value formatter (defaults to `${value}${suffix}`). */
+  formatValue?: (value: number) => string;
 }
 
+/**
+ * Slider-style numeric input. Ditched the bare `<input type="number">` so
+ * touch users get a proper draggable affordance. Native range input still
+ * does the heavy lifting (keyboard arrows, accessibility) — we just paint
+ * over it. Hit-target is 28px tall so it's comfortable on phones.
+ */
 export const NumberInput = ({
   value,
   onChange,
@@ -77,6 +86,7 @@ export const NumberInput = ({
   max,
   step = 1,
   suffix,
+  formatValue,
 }: NumberInputProps) => {
   const handle = (e: ChangeEvent<HTMLInputElement>) => {
     const v = Number(e.target.value);
@@ -84,18 +94,34 @@ export const NumberInput = ({
     onChange(v);
   };
 
+  // Clamp the percentage so a value briefly out-of-range (e.g. while the
+  // store is settling after a preset apply) doesn't push the fill past
+  // the track edges.
+  const pct = Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100));
+
+  // Default formatter: tabular numerals, optional suffix, drop trailing
+  // zero noise on fractional steps so the readout stays compact.
+  const display =
+    formatValue?.(value) ??
+    (Number.isInteger(value)
+      ? `${value}${suffix ?? ''}`
+      : `${value.toFixed(2).replace(/\.?0+$/, '')}${suffix ?? ''}`);
+
   return (
-    <div className={styles.numberWrap}>
-      <input
-        type="number"
-        className={styles.numberInput}
-        value={value}
-        min={min}
-        max={max}
-        step={step}
-        onChange={handle}
-      />
-      {suffix && <span className={styles.numberSuffix}>{suffix}</span>}
+    <div className={styles.sliderWrap}>
+      <div className={styles.sliderTrack}>
+        <div className={styles.sliderFill} style={{ width: `${pct}%` }} />
+        <input
+          type="range"
+          className={styles.sliderInput}
+          value={value}
+          min={min}
+          max={max}
+          step={step}
+          onChange={handle}
+        />
+      </div>
+      <span className={styles.sliderValue}>{display}</span>
     </div>
   );
 };
@@ -132,19 +158,10 @@ interface ColorInputProps {
 }
 
 export const ColorInput = ({ value, onChange, allowEmpty }: ColorInputProps) => {
-  const id = useId();
   const safe = value || '#000000';
   return (
     <div className={styles.colorWrap}>
-      <label htmlFor={id} className={styles.colorSwatch} style={{ background: safe }}>
-        <input
-          id={id}
-          type="color"
-          className={styles.colorNative}
-          value={safe}
-          onChange={(e) => onChange(e.target.value)}
-        />
-      </label>
+      <ColorPicker value={safe} onChange={onChange} size={34} />
       <input
         type="text"
         className={styles.colorText}
@@ -187,20 +204,31 @@ interface SegmentedControlProps<T extends string> {
   value: T;
   onChange: (value: T) => void;
   options: Array<{ label: string; value: T }>;
+  /** "sm" (default) for in-popover use; "md" matches the OptionsMenu pill
+   *  height so it can sit alongside it in the top bar. */
+  size?: 'sm' | 'md';
 }
 
 export const SegmentedControl = <T extends string>({
   value,
   onChange,
   options,
+  size = 'sm',
 }: SegmentedControlProps<T>) => (
-  <div className={styles.segmented} role="tablist">
+  <div
+    className={[styles.segmented, styles[`segmented_${size}`]].join(' ')}
+    role="tablist"
+  >
     {options.map((opt) => (
       <button
         key={opt.value}
         role="tab"
         aria-selected={value === opt.value}
-        className={[styles.segment, value === opt.value ? styles.segmentActive : '']
+        className={[
+          styles.segment,
+          styles[`segment_${size}`],
+          value === opt.value ? styles.segmentActive : '',
+        ]
           .filter(Boolean)
           .join(' ')}
         onClick={() => onChange(opt.value)}

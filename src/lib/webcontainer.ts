@@ -207,7 +207,13 @@ const optionsToFlags = (opts: RenderOptions): string[] => {
     flags.push(flag, String(value));
   };
 
-  push('--theme', opts.theme);
+  // Custom themes (id like "custom-1234") aren't in dvd-cli's --theme
+  // choices list and would be rejected. The script's `Set Theme {json}`
+  // directive — written by the bidirectional menu↔script sync — handles
+  // those at runtime instead.
+  if (opts.theme && !opts.theme.startsWith('custom-')) {
+    push('--theme', opts.theme);
+  }
   push('--template', opts.template);
   push('--font-size', opts.fontSize);
   push('--line-height', opts.lineHeight);
@@ -262,7 +268,23 @@ export const runScript = async (
 
   const inputPath = 'input.cd';
   const outputPath = 'output.svg';
-  await booted.instance.fs.writeFile(inputPath, input.source);
+  // dvd-cli has no global "hide cursor" flag for script renders. We fake
+  // it by prefixing the script with a Hide/Show block that prints the
+  // DECTCEM-off escape (`\e[?25l`); the terminal state stays "cursor
+  // hidden" for the rest of the capture. The wrapper itself isn't recorded
+  // because it lives between Hide and Show.
+  const sourceForRun = input.options.cursorVisible
+    ? input.source
+    : [
+        'Hide',
+        `Type "printf '\\033[?25l'"`,
+        'Enter',
+        'Sleep 50ms',
+        'Show',
+        '',
+        input.source,
+      ].join('\n');
+  await booted.instance.fs.writeFile(inputPath, sourceForRun);
 
   const flags = optionsToFlags(input.options);
   // `npm exec` runs a local bin and inherits PATH so dvd's bash subshells
