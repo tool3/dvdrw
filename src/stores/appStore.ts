@@ -2,19 +2,18 @@ import { create } from 'zustand';
 
 export type Theme = 'dark' | 'light';
 export type View = 'script' | 'cast';
-export type ScriptMode = 'preview' | 'run';
 
 interface AppState {
   theme: Theme;
   view: View;
-  scriptMode: ScriptMode;
-  presetsOpen: boolean;
+  /** Whether the runner re-runs automatically when the source/options
+   *  change. Toggled via the Auto/Manual chip in the Runner toolbar. */
+  autoRun: boolean;
   setTheme: (theme: Theme) => void;
   toggleTheme: () => void;
   setView: (view: View) => void;
-  setScriptMode: (mode: ScriptMode) => void;
-  togglePresets: () => void;
-  setPresetsOpen: (open: boolean) => void;
+  setAutoRun: (autoRun: boolean) => void;
+  toggleAutoRun: () => void;
 }
 
 const readInitialTheme = (): Theme => {
@@ -35,8 +34,7 @@ const persistTheme = (theme: Theme) => {
 export const useAppStore = create<AppState>((set, get) => ({
   theme: readInitialTheme(),
   view: 'script',
-  scriptMode: 'preview',
-  presetsOpen: false,
+  autoRun: true,
   setTheme: (theme) => {
     persistTheme(theme);
     set({ theme });
@@ -47,7 +45,6 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ theme: next });
   },
   setView: (view) => set({ view }),
-  setScriptMode: (scriptMode) => set({ scriptMode }),
-  togglePresets: () => set({ presetsOpen: !get().presetsOpen }),
-  setPresetsOpen: (open) => set({ presetsOpen: open }),
+  setAutoRun: (autoRun) => set({ autoRun }),
+  toggleAutoRun: () => set({ autoRun: !get().autoRun }),
 }));

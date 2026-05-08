@@ -1,7 +1,8 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import type { RenderState } from '../../lib/types';
 import styles from './SvgPreview.module.scss';
 import { Button } from '../primitives/Button';
+import { ZoomControls } from '../primitives/ZoomControls';
 
 interface SvgPreviewProps {
   state: RenderState;
@@ -48,6 +49,7 @@ const downloadBlob = (text: string, filename: string, mime: string) => {
 };
 
 export const SvgPreview = ({ state, filename = 'output.svg', notices }: SvgPreviewProps) => {
+  const [zoom, setZoom] = useState(1);
   const dataUrl = useMemo(() => {
     if (state.status !== 'ok') return null;
     const encoded = encodeURIComponent(state.result.svg);
@@ -75,6 +77,11 @@ export const SvgPreview = ({ state, filename = 'output.svg', notices }: SvgPrevi
         </div>
 
         <div className={styles.actions}>
+          <ZoomControls
+            zoom={zoom}
+            onChange={setZoom}
+            disabled={state.status !== 'ok'}
+          />
           <Button
             size="sm"
             variant="ghost"
@@ -104,7 +111,7 @@ export const SvgPreview = ({ state, filename = 'output.svg', notices }: SvgPrevi
 
       <div className={styles.stage}>
         {state.status === 'ok' && dataUrl && (
-          <div className={styles.frame}>
+          <div className={styles.frame} style={{ zoom }}>
             <img className={styles.image} src={dataUrl} alt="rendered preview" draggable={false} />
           </div>
         )}

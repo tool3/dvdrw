@@ -8,8 +8,10 @@ import {
   type RunnerStage,
 } from '../../lib/webcontainer';
 import { useOptionsStore, type RenderOptions } from '../../stores/optionsStore';
+import { useAppStore } from '../../stores/appStore';
 import { Button } from '../primitives/Button';
 import { TextInput } from '../primitives/Form';
+import { ZoomControls } from '../primitives/ZoomControls';
 import { TerminalBuffer, cellsToSpans } from '../../lib/terminal';
 import { styleToCss } from '../../lib/ansi';
 import styles from './Runner.module.scss';
@@ -45,15 +47,27 @@ const PlusIcon = () => (
   </svg>
 );
 
-const ZoomInIcon = () => (
-  <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden>
-    <path d="M6 3v6M3 6h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-  </svg>
-);
-
-const ZoomOutIcon = () => (
-  <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden>
-    <path d="M3 6h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+/* Lightweight ring spinner. Uses currentColor so it inherits whatever the
+   parent's text color is — green during run, accent during boot. */
+const Spinner = ({ size = 32 }: { size?: number }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 32 32"
+    className={styles.spinnerSvg}
+    aria-hidden
+  >
+    <circle
+      cx="16"
+      cy="16"
+      r="12"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeDasharray="44 36"
+      opacity="0.85"
+    />
   </svg>
 );
 
@@ -71,21 +85,17 @@ const downloadBlob = (text: string, filename: string, mime: string) => {
 
 const AUTO_RERUN_DELAY_MS = 800;
 
-// Discrete zoom stops users can click through. Spans 0.25x → 4x with the
-// 100% stop in the middle so the reset button has a natural target.
-const ZOOM_STOPS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4];
-
-const nearestZoomStep = (current: number, direction: 1 | -1): number => {
-  if (direction > 0) {
-    const next = ZOOM_STOPS.find((s) => s > current + 0.001);
-    return next ?? ZOOM_STOPS[ZOOM_STOPS.length - 1];
-  }
-  const lower = [...ZOOM_STOPS].reverse().find((s) => s < current - 0.001);
-  return lower ?? ZOOM_STOPS[0];
-};
+const BOOT_STAGES = new Set<RunnerStage>([
+  'booting',
+  'installing',
+  'verifying',
+]);
 
 export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
   const options = useOptionsStore((s) => s.options);
+  const autoRun = useAppStore((s) => s.autoRun);
+  const toggleAutoRun = useAppStore((s) => s.toggleAutoRun);
+
   const [stage, setStage] = useState<RunnerStage>('idle');
   const [message, setMessage] = useState(DEFAULT_MESSAGES.idle);
   const bufferRef = useRef<TerminalBuffer>(new TerminalBuffer());
@@ -107,10 +117,12 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
   const sourceRef = useRef(source);
   const optionsRef = useRef<RenderOptions>(options);
   const hasRunOnceRef = useRef(false);
+  const autoRunRef = useRef(autoRun);
 
   sourceRef.current = source;
   optionsRef.current = options;
   hasRunOnceRef.current = hasRunOnce;
+  autoRunRef.current = autoRun;
 
   const supported = useMemo(() => isSupported(), []);
 
@@ -193,12 +205,13 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
 
   runFnRef.current = performRun;
 
-  // Once the user has triggered the first run, treat subsequent edits as a
-  // signal to re-render. We watch source and options changes (NOT hasRunOnce
-  // — that flip alone shouldn't trigger a re-run) and gate via the ref.
+  // Auto-rerun on source/options changes — only if the user hasn't switched
+  // the chip to Manual. The autoRun ref is read inside the closure so flipping
+  // the toggle off mid-edit interrupts a pending debounce.
   useEffect(() => {
     if (!hasRunOnceRef.current) return;
     if (!supported) return;
+    if (!autoRunRef.current) return;
 
     if (debounceRef.current !== null) {
       window.clearTimeout(debounceRef.current);
@@ -207,6 +220,12 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
 
     debounceRef.current = window.setTimeout(() => {
       debounceRef.current = null;
+      // Re-check at fire time — the user could have flipped to Manual
+      // during the debounce window.
+      if (!autoRunRef.current) {
+        setAutoQueued(false);
+        return;
+      }
       runFnRef.current();
     }, AUTO_RERUN_DELAY_MS);
 
@@ -217,6 +236,15 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
       }
     };
   }, [source, options, supported]);
+
+  // Switching to Manual mid-debounce should also clear the queued indicator.
+  useEffect(() => {
+    if (!autoRun && debounceRef.current !== null) {
+      window.clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+      setAutoQueued(false);
+    }
+  }, [autoRun]);
 
   const dataUrl = useMemo(() => {
     if (!svg) return null;
@@ -247,8 +275,33 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
     }
   }, [depDraft, installing, appendLog, handleStage]);
 
-  const showAutoBadge = hasRunOnce && supported;
+  // Status chip — three states share the same physical chip so the user's
+  // eye doesn't have to move between affordances.
+  //   • Running (green): a run is in flight; chip is read-only.
+  //   • Auto (accent):   re-runs are scheduled on edit; click → Manual.
+  //   • Manual (orange): edits don't trigger runs; click → Auto.
+  // Booting/installing/verifying counts as Running so the chip mirrors the
+  // boot spinner's state.
+  const isBooting = BOOT_STAGES.has(stage);
+  const chipKind = running || isBooting ? 'running' : autoRun ? 'auto' : 'manual';
+  const chipLabel = chipKind === 'running' ? 'Running' : chipKind === 'auto' ? 'Auto' : 'Manual';
+  const chipDisabled = chipKind === 'running' || !supported || !hasRunOnce;
+
   const status = autoQueued && !running ? 'Auto-run queued…' : message;
+
+  // Centered boot/run spinner shown in the stage when there's no rendered
+  // SVG yet — gives the user something to watch during the multi-second
+  // first boot + npm install.
+  const stageSpinner = (() => {
+    if (dataUrl) return null;
+    if (running) {
+      return { tone: 'running' as const, label: status };
+    }
+    if (isBooting) {
+      return { tone: 'booting' as const, label: status };
+    }
+    return null;
+  })();
 
   return (
     <div className={styles.wrap}>
@@ -256,41 +309,38 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
         <div className={styles.status}>
           <span className={[styles.dot, styles[`dot_${stage}`]].join(' ')} aria-hidden />
           <span className={styles.statusText}>{status}</span>
-          {showAutoBadge && <span className={styles.autoBadge}>auto</span>}
         </div>
         <div className={styles.actions}>
-          <div className={styles.zoomGroup} role="group" aria-label="Preview zoom">
-            <button
-              type="button"
-              className={styles.zoomBtn}
-              disabled={!svg || zoom <= ZOOM_STOPS[0]}
-              onClick={() => setZoom((z) => nearestZoomStep(z, -1))}
-              aria-label="Zoom out"
-              title="Zoom out"
-            >
-              <ZoomOutIcon />
-            </button>
-            <button
-              type="button"
-              className={styles.zoomLevel}
-              disabled={!svg}
-              onClick={() => setZoom(1)}
-              aria-label={`Reset zoom to 100% (currently ${Math.round(zoom * 100)}%)`}
-              title="Reset to 100%"
-            >
-              {Math.round(zoom * 100)}%
-            </button>
-            <button
-              type="button"
-              className={styles.zoomBtn}
-              disabled={!svg || zoom >= ZOOM_STOPS[ZOOM_STOPS.length - 1]}
-              onClick={() => setZoom((z) => nearestZoomStep(z, 1))}
-              aria-label="Zoom in"
-              title="Zoom in"
-            >
-              <ZoomInIcon />
-            </button>
-          </div>
+          <button
+            type="button"
+            className={[styles.modeChip, styles[`modeChip_${chipKind}`]]
+              .filter(Boolean)
+              .join(' ')}
+            onClick={() => {
+              if (chipKind === 'running') return;
+              toggleAutoRun();
+            }}
+            disabled={chipDisabled}
+            aria-label={
+              chipKind === 'running'
+                ? 'Currently running'
+                : chipKind === 'auto'
+                  ? 'Auto-rerun is on. Click to switch to manual.'
+                  : 'Manual mode. Click to switch to auto-rerun.'
+            }
+            title={
+              chipKind === 'running'
+                ? 'A run is in flight'
+                : chipKind === 'auto'
+                  ? 'Auto: re-runs on every edit. Click for Manual.'
+                  : 'Manual: edits don’t trigger runs. Click for Auto.'
+            }
+          >
+            <span className={styles.modeChipDot} aria-hidden />
+            {chipLabel}
+          </button>
+
+          <ZoomControls zoom={zoom} onChange={setZoom} disabled={!svg} />
 
           <Button
             size="sm"
@@ -365,15 +415,29 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
       <div className={styles.body}>
         <div className={styles.stage}>
           {dataUrl ? (
+            <div className={styles.frame} style={{ zoom }}>
+              <img
+                className={styles.image}
+                src={dataUrl}
+                alt="container output"
+                draggable={false}
+              />
+            </div>
+          ) : stageSpinner ? (
             <div
-              className={styles.frame}
-              /* `zoom` (vs. transform: scale) drives layout too, so the
-                  stage's overflow:auto can scroll naturally when zoomed
-                  past the viewport. Chromium-only — but WebContainers
-                  already requires Chromium. */
-              style={{ zoom }}
+              className={[styles.bootSpinner, styles[`bootSpinner_${stageSpinner.tone}`]]
+                .filter(Boolean)
+                .join(' ')}
+              role="status"
+              aria-live="polite"
             >
-              <img className={styles.image} src={dataUrl} alt="container output" draggable={false} />
+              <Spinner size={36} />
+              <span className={styles.bootSpinnerLabel}>{stageSpinner.label}</span>
+              <span className={styles.bootSpinnerSub}>
+                {stageSpinner.tone === 'booting'
+                  ? 'First boot can take a minute while the toolkit installs.'
+                  : 'Streaming output from the container.'}
+              </span>
             </div>
           ) : (
             <div className={styles.placeholderCard}>

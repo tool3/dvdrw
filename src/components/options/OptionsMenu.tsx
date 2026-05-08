@@ -4,11 +4,15 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  type ReactNode,
 } from 'react';
 import { Button } from '../primitives/Button';
-import { useAppStore } from '../../stores/appStore';
 import { useOptionsStore } from '../../stores/optionsStore';
-import { optionsSections, type OptionsSection } from './sections';
+import {
+  optionsSections,
+  presetsSection,
+  type OptionsSection,
+} from './sections';
 import styles from './OptionsMenu.module.scss';
 
 const ResetIcon = () => (
@@ -33,21 +37,24 @@ const PresetsIcon = () => (
   </svg>
 );
 
+interface ResolvedSection {
+  id: string;
+  label: string;
+  body: ReactNode;
+  wide?: boolean;
+}
+
 /**
  * The pill menu of customization categories.
  *
- * Renders a horizontal capsule with one button per category. Clicking a
- * button opens a popover anchored under that button containing the
- * section's controls; clicking the active button again, clicking outside,
- * or pressing Esc closes it. Only one popover is open at a time.
- *
- * Anchor position is computed via getBoundingClientRect() and applied to
- * a fixed-position popover so the cards beneath the menu can scroll
- * without dragging the popover with them.
+ * Renders a horizontal capsule with one button per category — including
+ * Presets, which behaves identically to the option categories: a click
+ * opens a popover anchored under the button, click again / outside / Esc
+ * dismisses. Only one popover is open at a time. Presets gets a wider
+ * variant of the popover to fit its 2-column grid; applying a preset
+ * dismisses the popover.
  */
 export const OptionsMenu = () => {
-  const presetsOpen = useAppStore((s) => s.presetsOpen);
-  const togglePresets = useAppStore((s) => s.togglePresets);
   const resetOptions = useOptionsStore((s) => s.reset);
 
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -58,12 +65,6 @@ export const OptionsMenu = () => {
   const buttonsRef = useRef<Record<string, HTMLButtonElement | null>>({});
   const popoverRef = useRef<HTMLDivElement | null>(null);
   const pillRef = useRef<HTMLDivElement | null>(null);
-
-  // Close the popover whenever the presets gallery opens — stacking two
-  // overlays would feel cluttered.
-  useEffect(() => {
-    if (presetsOpen) setActiveId(null);
-  }, [presetsOpen]);
 
   const close = useCallback(() => setActiveId(null), []);
 
@@ -120,49 +121,66 @@ export const OptionsMenu = () => {
     };
   }, [activeId, close]);
 
-  const activeSection: OptionsSection | undefined = optionsSections.find(
-    (s) => s.id === activeId,
+  // Resolve the active section. Presets is a special section with a
+  // component that needs a callback for closeOnApply, hence its own branch.
+  let activeSection: ResolvedSection | undefined;
+  if (activeId === presetsSection.id) {
+    const Body = presetsSection.Component;
+    activeSection = {
+      id: presetsSection.id,
+      label: presetsSection.label,
+      wide: presetsSection.wide,
+      body: <Body onApplied={presetsSection.closeOnApply ? close : undefined} />,
+    };
+  } else if (activeId) {
+    const found = optionsSections.find((s) => s.id === activeId);
+    if (found) {
+      activeSection = {
+        id: found.id,
+        label: found.label,
+        body: found.body,
+        wide: found.wide,
+      };
+    }
+  }
+
+  const renderTab = (
+    section: { id: string; label: string },
+    extraIcon?: ReactNode,
+  ) => (
+    <button
+      key={section.id}
+      ref={(el) => {
+        buttonsRef.current[section.id] = el;
+      }}
+      type="button"
+      className={[
+        styles.tab,
+        activeId === section.id ? styles.tabActive : '',
+        extraIcon ? styles.tabWithIcon : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      aria-expanded={activeId === section.id}
+      onClick={() => {
+        if (activeId === section.id) close();
+        else open(section.id);
+      }}
+    >
+      {extraIcon && <span className={styles.tabIcon}>{extraIcon}</span>}
+      <span>{section.label}</span>
+    </button>
   );
 
   return (
     <>
       <div className={styles.shell}>
         <div className={styles.pill} ref={pillRef}>
-          {optionsSections.map((section) => (
-            <button
-              key={section.id}
-              ref={(el) => {
-                buttonsRef.current[section.id] = el;
-              }}
-              type="button"
-              className={[
-                styles.tab,
-                activeId === section.id ? styles.tabActive : '',
-              ]
-                .filter(Boolean)
-                .join(' ')}
-              aria-expanded={activeId === section.id}
-              onClick={() => {
-                if (activeId === section.id) close();
-                else open(section.id);
-              }}
-            >
-              {section.label}
-            </button>
-          ))}
+          {(optionsSections as OptionsSection[]).map((section) => renderTab(section))}
 
           <span className={styles.divider} aria-hidden />
 
-          <Button
-            size="sm"
-            variant="ghost"
-            iconLeft={<PresetsIcon />}
-            onClick={togglePresets}
-            aria-expanded={presetsOpen}
-            title="Open the preset gallery"
-          >
-            Presets
-          </Button>
+          {renderTab(presetsSection, <PresetsIcon />)}
 
           <Button
             size="sm"
@@ -179,14 +197,21 @@ export const OptionsMenu = () => {
       {activeSection && anchor && (
         <div
           ref={popoverRef}
-          className={styles.popover}
+          className={[
+            styles.popover,
+            activeSection.wide ? styles.popoverWide : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
           style={{ left: anchor.left, top: anchor.top }}
           role="dialog"
           aria-label={`${activeSection.label} options`}
         >
           <div className={styles.popoverArrow} aria-hidden />
           <header className={styles.popoverHeader}>
-            <span className={styles.popoverEyebrow}>Customize</span>
+            <span className={styles.popoverEyebrow}>
+              {activeSection.id === presetsSection.id ? 'One-click looks' : 'Customize'}
+            </span>
             <h3 className={styles.popoverTitle}>{activeSection.label}</h3>
           </header>
           <div className={styles.popoverBody}>{activeSection.body}</div>

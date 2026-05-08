@@ -1,6 +1,7 @@
 import { useMemo, type ReactNode } from 'react';
 import { themes as builtinThemes } from 'dvdrw';
 import { useOptionsStore } from '../../stores/optionsStore';
+import { PRESETS } from '../../lib/presets';
 import {
   ColorInput,
   Field,
@@ -10,6 +11,7 @@ import {
   Switch,
   TextInput,
 } from '../primitives/Form';
+import sectionStyles from './sections.module.scss';
 
 /**
  * Per-category option sections.
@@ -24,6 +26,12 @@ export interface OptionsSection {
   id: string;
   label: string;
   body: ReactNode;
+  /** Render the popover at the wide preset (~480px) instead of the
+   *  default narrow ~320px. Used for content with multi-column layouts. */
+  wide?: boolean;
+  /** Close the popover after the user interacts inside it. Used for
+   *  presets — applying one should dismiss the popover. */
+  closeOnApply?: boolean;
 }
 
 const StyleSection = () => {
@@ -294,6 +302,41 @@ const OutputSection = () => {
   );
 };
 
+/* Presets section — visually distinct from the form sections. Lives in the
+   same popover infrastructure but renders a 2-col grid of preset cards.
+   Closes the popover after the user applies one (closeOnApply). */
+const PresetsSection = ({ onApplied }: { onApplied?: () => void }) => {
+  const apply = useOptionsStore((s) => s.applyPartial);
+  return (
+    <div className={sectionStyles.presetGrid}>
+      {PRESETS.map((preset) => (
+        <button
+          key={preset.id}
+          type="button"
+          className={sectionStyles.presetCard}
+          onClick={() => {
+            apply(preset.patch);
+            onApplied?.();
+          }}
+        >
+          <span
+            className={sectionStyles.presetSwatch}
+            style={{
+              background: `linear-gradient(135deg, ${preset.swatch.from}, ${preset.swatch.to})`,
+            }}
+          >
+            <span className={sectionStyles.presetSwatchInner} />
+          </span>
+          <span className={sectionStyles.presetMeta}>
+            <span className={sectionStyles.presetName}>{preset.name}</span>
+            <span className={sectionStyles.presetDesc}>{preset.description}</span>
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+};
+
 export const optionsSections: OptionsSection[] = [
   { id: 'style', label: 'Style', body: <StyleSection /> },
   { id: 'type', label: 'Type', body: <TypeSection /> },
@@ -303,3 +346,13 @@ export const optionsSections: OptionsSection[] = [
   { id: 'animation', label: 'Animation', body: <AnimationSection /> },
   { id: 'output', label: 'Output', body: <OutputSection /> },
 ];
+
+/* Presets is exported separately because OptionsMenu renders it after a
+   visual divider and may pass an onApplied callback. */
+export const presetsSection = {
+  id: 'presets',
+  label: 'Presets',
+  wide: true,
+  closeOnApply: true,
+  Component: PresetsSection,
+} as const;

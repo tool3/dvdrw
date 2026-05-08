@@ -89,91 +89,96 @@
   gap: var(--space-2);
 }
 
-/* Zoom controls — a tight glass capsule, [-, %, +]. The percentage button
-   doubles as a "reset to 100%" affordance and shows the current state at
-   a glance, so two of the three buttons do double duty. */
-.zoomGroup {
+/* Mode chip — shared physical pill that cycles through Auto / Manual /
+   Running. Each kind picks its own color so the user reads the state at
+   a glance: accent for Auto, warm orange for Manual, success green for
+   Running. The chip is interactive while non-Running. */
+.modeChip {
+  @include reset-button;
+  @include clickable-surface;
   display: inline-flex;
   align-items: center;
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
+  gap: var(--space-2);
+  height: 28px;
+  padding: 0 12px 0 10px;
   border-radius: var(--radius-pill);
-  padding: 2px;
-  gap: 0;
-  box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.05) inset;
-  margin-right: var(--space-1);
-}
-
-.zoomBtn {
-  @include reset-button;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 999px;
-  color: var(--text-secondary);
-  transition:
-    background-color var(--duration-fast) var(--ease-out),
-    color var(--duration-fast) var(--ease-out);
-
-  &:hover:not(:disabled) {
-    background: var(--glass-bg-hover);
-    color: var(--text-primary);
-  }
-
-  &:focus-visible {
-    @include focus-ring;
-  }
-
-  &:disabled {
-    opacity: 0.35;
-    cursor: not-allowed;
-  }
-}
-
-.zoomLevel {
-  @include reset-button;
-  height: 26px;
-  min-width: 50px;
-  padding: 0 var(--space-2);
-  border-radius: 999px;
   font-size: var(--text-12);
-  font-weight: var(--weight-medium);
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: 'tnum' 1;
+  font-weight: var(--weight-semibold);
   letter-spacing: -0.005em;
-  color: var(--text-secondary);
-  transition:
-    background-color var(--duration-fast) var(--ease-out),
-    color var(--duration-fast) var(--ease-out);
-
-  &:hover:not(:disabled) {
-    background: var(--glass-bg-hover);
-    color: var(--text-primary);
-  }
+  font-variant-caps: all-small-caps;
+  font-feature-settings: 'c2sc';
 
   &:focus-visible {
     @include focus-ring;
   }
 
   &:disabled {
-    opacity: 0.35;
-    cursor: not-allowed;
+    cursor: default;
   }
 }
 
-.autoBadge {
-  font-size: var(--text-11);
-  font-weight: var(--weight-semibold);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  padding: 2px 8px;
-  border-radius: var(--radius-pill);
+.modeChipDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: 0 0 auto;
+  /* The dot picks up a soft halo from the chip's tint, so a glance at
+     the chip reads the dot + label as a single unit. */
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.04);
+}
+
+.modeChip_auto {
   background: var(--accent-soft);
   color: var(--accent);
-  font-family: var(--font-sans);
-  box-shadow: 0 0 0 1px var(--accent-soft);
+  box-shadow:
+    0 1px 0 0 rgba(255, 255, 255, 0.08) inset,
+    0 0 0 1px rgba(166, 152, 255, 0.18);
+
+  &:hover:not(:disabled) {
+    background: rgba(166, 152, 255, 0.22);
+    color: var(--accent-hover);
+  }
+}
+
+.modeChip_manual {
+  background: rgba(255, 196, 114, 0.14);
+  color: var(--warning);
+  box-shadow:
+    0 1px 0 0 rgba(255, 255, 255, 0.08) inset,
+    0 0 0 1px rgba(255, 196, 114, 0.22);
+
+  &:hover:not(:disabled) {
+    background: rgba(255, 196, 114, 0.20);
+  }
+}
+
+.modeChip_running {
+  background: rgba(107, 230, 180, 0.14);
+  color: var(--success);
+  box-shadow:
+    0 1px 0 0 rgba(255, 255, 255, 0.08) inset,
+    0 0 0 1px rgba(107, 230, 180, 0.22);
+
+  /* Live, pulsing halo on the running dot only — keeps the chip
+     readable while signaling activity. */
+  .modeChipDot {
+    animation: modeDotPulse 1.4s var(--ease-in-out) infinite;
+  }
+}
+
+@keyframes modeDotPulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 2px rgba(255, 255, 255, 0.04),
+      0 0 0 0 rgba(107, 230, 180, 0.55);
+  }
+  50% {
+    box-shadow:
+      0 0 0 2px rgba(255, 255, 255, 0.04),
+      0 0 0 6px rgba(107, 230, 180, 0);
+  }
 }
 
 /* Dependency installer bar — appears below the toolbar when "Add package"
@@ -259,6 +264,54 @@
   display: block;
   max-width: 100%;
   height: auto;
+}
+
+/* Boot/run spinner — shown centered in the stage when there's no SVG
+   yet but something is happening. Tints + animation match the mode chip
+   so the eye groups the boot state across both regions. */
+.bootSpinner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-8);
+  text-align: center;
+  max-width: 420px;
+}
+
+.bootSpinner_booting {
+  color: var(--accent);
+}
+
+.bootSpinner_running {
+  color: var(--success);
+}
+
+.spinnerSvg {
+  display: block;
+  animation: bootSpin 0.9s linear infinite;
+  filter: drop-shadow(0 0 12px currentColor);
+  opacity: 0.85;
+}
+
+@keyframes bootSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.bootSpinnerLabel {
+  font-size: var(--text-14);
+  font-weight: var(--weight-medium);
+  letter-spacing: -0.005em;
+  color: var(--text-primary);
+}
+
+.bootSpinnerSub {
+  font-size: var(--text-12);
+  color: var(--text-muted);
+  line-height: var(--leading-relaxed);
 }
 
 /* Placeholder card — a flat-glass tile with the toolkit list, shown

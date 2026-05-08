@@ -39,6 +39,7 @@
   @include clickable-surface;
   display: inline-flex;
   align-items: center;
+  gap: var(--space-2);
   height: 32px;
   padding: 0 14px;
   border-radius: var(--radius-pill);
@@ -55,6 +56,17 @@
   &:focus-visible {
     @include focus-ring;
   }
+}
+
+.tabWithIcon {
+  padding-left: 12px;
+}
+
+.tabIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: -1px;
 }
 
 /* Active tab — filled with a soft accent wash. The directional inset
@@ -99,6 +111,13 @@
 
   animation: popoverIn 220ms var(--ease-spring);
   transform-origin: top center;
+}
+
+/* Wider variant — used for the presets popover, which has a 2-column
+   grid of cards. Caps at the viewport width so it doesn't spill on
+   narrow screens. */
+.popoverWide {
+  width: min(520px, calc(100vw - var(--space-8)));
 }
 
 @keyframes popoverIn {
