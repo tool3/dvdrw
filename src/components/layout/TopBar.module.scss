@@ -1,11 +1,13 @@
+@use '../../styles/mixins.scss' as *;
+
 .bar {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  height: 56px;
-  padding: 0 var(--space-4);
-  background: var(--bg-base);
-  border-bottom: 1px solid var(--border-subtle);
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  position: relative;
+  z-index: 4;
 }
 
 .brand {
@@ -15,26 +17,44 @@
   min-width: 0;
 }
 
+/* Brand mark in a tinted glass capsule. The accent color subtly leaks
+   through the aperture motif, suggesting "this is the lens through which
+   you watch your terminal play back". */
 .brandMark {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-2);
-  background: var(--brand-soft);
-  color: var(--brand);
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-3);
+  background: var(--accent-soft);
+  color: var(--accent);
+  box-shadow:
+    0 1px 0 0 rgba(255, 255, 255, 0.14) inset,
+    0 0 0 1px var(--glass-border-strong),
+    0 6px 16px -4px var(--accent-glow);
 }
 
+.brandWord {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.05;
+  min-width: 0;
+}
+
+/* Wordmark uses the body family at a tight tracking and a heavier weight,
+   so the brand reads as quietly authoritative rather than logotype-busy. */
 .brandName {
-  font-size: var(--text-16);
+  font-size: var(--text-18);
   font-weight: var(--weight-semibold);
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
   color: var(--text-primary);
 }
 
 .brandTag {
-  font-size: var(--text-12);
+  font-size: var(--text-11);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -48,12 +68,11 @@
 .center {
   display: flex;
   justify-content: center;
-  min-width: 220px;
 }
 
 .right {
   display: flex;
   align-items: center;
-  gap: var(--space-1);
+  gap: var(--space-2);
   justify-content: flex-end;
 }

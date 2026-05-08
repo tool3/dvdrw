@@ -13,9 +13,8 @@
   justify-content: space-between;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--border-subtle);
-  background: var(--bg-base);
-  min-height: 50px;
+  border-bottom: 1px solid var(--glass-border);
+  min-height: 46px;
 }
 
 .status {
@@ -28,14 +27,18 @@
 
 .statusText {
   font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
 }
 
+/* Status dot — the runner's livelong indicator. Each stage gets its own
+   color and animation. */
 .dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
   background: var(--text-muted);
   flex: 0 0 auto;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.04);
 }
 
 .dot_idle {
@@ -48,50 +51,140 @@
 .dot_installing,
 .dot_verifying,
 .dot_running {
-  background: var(--brand);
-  box-shadow: 0 0 0 0 var(--brand-soft);
+  background: var(--accent);
+  box-shadow:
+    0 0 0 2px rgba(255, 255, 255, 0.04),
+    0 0 0 0 var(--accent-glow);
   animation: pulse 1.6s var(--ease-in-out) infinite;
 }
 .dot_ready {
   background: var(--success);
+  box-shadow:
+    0 0 0 2px rgba(255, 255, 255, 0.04),
+    0 0 12px var(--success);
 }
 .dot_error {
   background: var(--danger);
+  box-shadow:
+    0 0 0 2px rgba(255, 255, 255, 0.04),
+    0 0 12px rgba(255, 122, 140, 0.6);
 }
 
 @keyframes pulse {
   0% {
-    box-shadow: 0 0 0 0 var(--brand-ring);
+    box-shadow:
+      0 0 0 2px rgba(255, 255, 255, 0.04),
+      0 0 0 0 var(--accent-ring);
   }
   100% {
-    box-shadow: 0 0 0 8px transparent;
+    box-shadow:
+      0 0 0 2px rgba(255, 255, 255, 0.04),
+      0 0 0 10px transparent;
   }
 }
 
 .actions {
   display: flex;
+  align-items: center;
   gap: var(--space-2);
+}
+
+/* Zoom controls — a tight glass capsule, [-, %, +]. The percentage button
+   doubles as a "reset to 100%" affordance and shows the current state at
+   a glance, so two of the three buttons do double duty. */
+.zoomGroup {
+  display: inline-flex;
+  align-items: center;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  padding: 2px;
+  gap: 0;
+  box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.05) inset;
+  margin-right: var(--space-1);
+}
+
+.zoomBtn {
+  @include reset-button;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  color: var(--text-secondary);
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+
+  &:hover:not(:disabled) {
+    background: var(--glass-bg-hover);
+    color: var(--text-primary);
+  }
+
+  &:focus-visible {
+    @include focus-ring;
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+}
+
+.zoomLevel {
+  @include reset-button;
+  height: 26px;
+  min-width: 50px;
+  padding: 0 var(--space-2);
+  border-radius: 999px;
+  font-size: var(--text-12);
+  font-weight: var(--weight-medium);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  letter-spacing: -0.005em;
+  color: var(--text-secondary);
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+
+  &:hover:not(:disabled) {
+    background: var(--glass-bg-hover);
+    color: var(--text-primary);
+  }
+
+  &:focus-visible {
+    @include focus-ring;
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
 }
 
 .autoBadge {
   font-size: var(--text-11);
-  font-weight: var(--weight-medium);
-  letter-spacing: 0.08em;
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  padding: 2px 6px;
-  border-radius: var(--radius-1);
-  background: var(--brand-soft);
-  color: var(--brand);
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
   font-family: var(--font-sans);
+  box-shadow: 0 0 0 1px var(--accent-soft);
 }
 
+/* Dependency installer bar — appears below the toolbar when "Add package"
+   is clicked. Uses a subtle inner glass band so it reads as a sub-action. */
 .depBar {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
-  border-bottom: 1px solid var(--border-subtle);
-  background: var(--bg-elevated);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--glass-border);
+  background: var(--glass-bg);
 
   > :first-child {
     flex: 1;
@@ -104,14 +197,13 @@
   flex-wrap: wrap;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-4);
-  border-bottom: 1px solid var(--border-subtle);
-  background: var(--bg-base);
+  border-bottom: 1px solid var(--glass-border);
 }
 
 .extraChipsLabel {
   font-size: var(--text-11);
   font-weight: var(--weight-semibold);
-  letter-spacing: 0.08em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--text-muted);
 }
@@ -120,10 +212,10 @@
   font-family: var(--font-mono);
   font-size: var(--text-12);
   color: var(--text-primary);
-  background: var(--bg-elevated-2);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-1);
-  padding: 1px 6px;
+  background: var(--glass-bg-strong);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  padding: 2px 10px;
 }
 
 .body {
@@ -133,6 +225,9 @@
   min-height: 0;
 }
 
+/* Stage — same checker-pattern preview surface as SvgPreview but at runner
+   sizes. The card-level rounded corners clip everything inside, so the
+   stage doesn't need its own border-radius. */
 .stage {
   flex: 1;
   min-height: 0;
@@ -141,8 +236,8 @@
   justify-content: center;
   padding: var(--space-8);
   overflow: auto;
-  background-color: var(--bg-canvas);
-  background-image: linear-gradient(45deg, var(--preview-checker-a) 25%, transparent 25%),
+  background-image:
+    linear-gradient(45deg, var(--preview-checker-a) 25%, transparent 25%),
     linear-gradient(-45deg, var(--preview-checker-a) 25%, transparent 25%),
     linear-gradient(45deg, transparent 75%, var(--preview-checker-a) 75%),
     linear-gradient(-45deg, transparent 75%, var(--preview-checker-a) 75%);
@@ -152,10 +247,12 @@
 
 .frame {
   display: inline-flex;
-  filter: drop-shadow(var(--shadow-3));
   border-radius: var(--radius-3);
   overflow: hidden;
   max-width: 100%;
+  filter:
+    drop-shadow(8px 16px 32px rgba(2, 4, 12, 0.55))
+    drop-shadow(2px 4px 12px rgba(2, 4, 12, 0.35));
 }
 
 .image {
@@ -164,8 +261,15 @@
   height: auto;
 }
 
+/* Placeholder card — a flat-glass tile with the toolkit list, shown
+   before the first run. */
 .placeholderCard {
-  @include panel;
+  background: var(--glass-bg-strong);
+  border: 1px solid var(--glass-border-strong);
+  border-radius: var(--radius-3);
+  box-shadow:
+    0 1px 0 0 var(--glass-highlight) inset,
+    var(--shadow-2);
   padding: var(--space-6);
   max-width: 520px;
   display: flex;
@@ -183,12 +287,14 @@
   margin: 0;
   font-size: var(--text-16);
   font-weight: var(--weight-semibold);
+  letter-spacing: -0.01em;
 }
 
 .placeholderSub {
   margin: 0;
   font-size: var(--text-13);
   color: var(--text-secondary);
+  line-height: var(--leading-relaxed);
 }
 
 .toolList {
@@ -200,7 +306,7 @@
 .toolHead {
   font-size: var(--text-11);
   font-weight: var(--weight-semibold);
-  letter-spacing: 0.08em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--text-muted);
 }
@@ -225,9 +331,10 @@
 
 .toolList code {
   font-family: var(--font-mono);
+  font-size: var(--text-12);
   color: var(--text-primary);
-  background: var(--bg-elevated-2);
-  border: 1px solid var(--border-subtle);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-1);
   padding: 1px 6px;
   width: fit-content;
@@ -237,27 +344,30 @@
   margin: 0;
   padding: var(--space-3);
   border-radius: var(--radius-2);
-  background: rgba(255, 180, 84, 0.08);
-  border: 1px solid rgba(255, 180, 84, 0.3);
+  background: rgba(255, 196, 114, 0.08);
+  border: 1px solid rgba(255, 196, 114, 0.28);
   color: var(--warning);
   font-size: var(--text-12);
 }
 
+/* Console — the stdout panel beneath the stage. Deep ink-black with the
+   ANSI-styled terminal output rendered atop a subtle inner glow that
+   suggests a real CRT. */
 .console {
   margin: 0;
   font-family: var(--font-mono);
   font-size: var(--text-11);
   line-height: 1.6;
-  background: #050505;
+  background: #060810;
   color: #c8c8c8;
-  border-top: 1px solid var(--border-subtle);
+  border-top: 1px solid var(--glass-border);
   padding: var(--space-3) var(--space-4);
   height: 200px;
   overflow-y: auto;
   white-space: pre-wrap;
   word-break: break-word;
+  box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.03) inset;
 
-  /* keep the ANSI-styled spans inheriting our base font + leading */
   span {
     font: inherit;
   }

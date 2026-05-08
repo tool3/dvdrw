@@ -1,20 +1,34 @@
 import type { ReactNode } from 'react';
 import styles from './Shell.module.scss';
 import { TopBar } from './TopBar';
+import { OptionsMenu } from '../options/OptionsMenu';
 
 interface ShellProps {
-  left: ReactNode;
-  center: ReactNode;
-  right: ReactNode;
+  /** Primary card on the left of the work area (editor / dropzone). */
+  primary: ReactNode;
+  /** Secondary card on the right of the work area (preview / runner). */
+  secondary: ReactNode;
+  /** Width ratio between primary and secondary cards. Default 40/60. */
+  split?: '40-60' | '50-50' | '60-40';
 }
 
-export const Shell = ({ left, center, right }: ShellProps) => (
+/**
+ * Top-level layout. Three vertical bands:
+ *   1. TopBar — brand, view switcher, theme/presets affordances.
+ *   2. OptionsMenu — the floating glass pill of customization categories.
+ *   3. Work area — two cards side-by-side per the requested split.
+ */
+export const Shell = ({ primary, secondary, split = '40-60' }: ShellProps) => (
   <div className={styles.shell}>
     <TopBar />
-    <main className={styles.main}>
-      <aside className={[styles.pane, styles.left].join(' ')}>{left}</aside>
-      <section className={[styles.pane, styles.center].join(' ')}>{center}</section>
-      <aside className={[styles.pane, styles.right].join(' ')}>{right}</aside>
+    <OptionsMenu />
+    <main className={[styles.main, styles[`split_${split}`]].join(' ')}>
+      <section className={[styles.pane, styles.primary].join(' ')}>
+        {primary}
+      </section>
+      <section className={[styles.pane, styles.secondary].join(' ')}>
+        {secondary}
+      </section>
     </main>
   </div>
 );

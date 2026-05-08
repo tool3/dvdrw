@@ -1,29 +1,24 @@
 import { useMemo, useState } from 'react';
 import { CdEditor } from '../components/editor/CdEditor';
 import { SvgPreview } from '../components/preview/SvgPreview';
-import { OptionsPanel } from '../components/options/OptionsPanel';
 import { Shell } from '../components/layout/Shell';
 import { Runner } from '../components/runner/Runner';
+import { Card } from '../components/primitives/Card';
 import { useOptionsStore } from '../stores/optionsStore';
 import { useAppStore } from '../stores/appStore';
 import { useRender } from '../lib/useRender';
 import type { RenderInput } from '../lib/render';
 import { SegmentedControl } from '../components/primitives/Form';
-import styles from './Views.module.scss';
 
 const SAMPLE = `# A short demo. Edit me.
 Set Theme dracula
 Set Title hello world
 Set FontSize 18
 
-Type "figlet DVD -f 'ANSI Shadow' | lolcatjs"
+Type "chartscii 1 2 3 4 5 -e -c 'gradient(cyan,pink)'"
 Sleep 300ms
 Enter
-Sleep 600ms
-Type "ls"
-Sleep 200ms
-Enter
-Sleep 800ms
+Sleep 2
 `;
 
 export const EditorView = () => {
@@ -36,43 +31,35 @@ export const EditorView = () => {
   const { state, notices } = useRender({
     input,
     options,
-    debounceMs: scriptMode === 'preview' ? 200 : 9999, // pause auto-render in run mode
+    debounceMs: scriptMode === 'preview' ? 200 : 9999,
   });
 
-  const left = (
-    <div className={styles.column}>
-      <header className={styles.colHeader}>
-        <h2 className={styles.colTitle}>Script</h2>
-        <span className={styles.colHint}>.cd commands</span>
-      </header>
+  const editorCard = (
+    <Card>
       <CdEditor value={source} onChange={setSource} />
-    </div>
+    </Card>
   );
 
-  const center = (
-    <div className={styles.column}>
-      <header className={styles.colHeader}>
-        <h2 className={styles.colTitle}>Output</h2>
-        <div className={styles.modeSwitch}>
-          <SegmentedControl
-            value={scriptMode}
-            onChange={setScriptMode}
-            options={[
-              { label: 'Preview', value: 'preview' },
-              { label: 'Run', value: 'run' },
-            ]}
-          />
-        </div>
-      </header>
+  const outputCard = (
+    <Card
+      actions={
+        <SegmentedControl
+          value={scriptMode}
+          onChange={setScriptMode}
+          options={[
+            { label: 'Preview', value: 'preview' },
+            { label: 'Run', value: 'run' },
+          ]}
+        />
+      }
+    >
       {scriptMode === 'preview' ? (
         <SvgPreview state={state} notices={notices} />
       ) : (
         <Runner source={source} />
       )}
-    </div>
+    </Card>
   );
 
-  const right = <OptionsPanel />;
-
-  return <Shell left={left} center={center} right={right} />;
+  return <Shell primary={editorCard} secondary={outputCard} split="40-60" />;
 };

@@ -45,6 +45,18 @@ const PlusIcon = () => (
   </svg>
 );
 
+const ZoomInIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden>
+    <path d="M6 3v6M3 6h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+  </svg>
+);
+
+const ZoomOutIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden>
+    <path d="M3 6h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+  </svg>
+);
+
 const downloadBlob = (text: string, filename: string, mime: string) => {
   const blob = new Blob([text], { type: mime });
   const url = URL.createObjectURL(blob);
@@ -58,6 +70,19 @@ const downloadBlob = (text: string, filename: string, mime: string) => {
 };
 
 const AUTO_RERUN_DELAY_MS = 800;
+
+// Discrete zoom stops users can click through. Spans 0.25x → 4x with the
+// 100% stop in the middle so the reset button has a natural target.
+const ZOOM_STOPS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4];
+
+const nearestZoomStep = (current: number, direction: 1 | -1): number => {
+  if (direction > 0) {
+    const next = ZOOM_STOPS.find((s) => s > current + 0.001);
+    return next ?? ZOOM_STOPS[ZOOM_STOPS.length - 1];
+  }
+  const lower = [...ZOOM_STOPS].reverse().find((s) => s < current - 0.001);
+  return lower ?? ZOOM_STOPS[0];
+};
 
 export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
   const options = useOptionsStore((s) => s.options);
@@ -73,6 +98,7 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
   const [showAddDep, setShowAddDep] = useState(false);
   const [depDraft, setDepDraft] = useState('');
   const [installing, setInstalling] = useState(false);
+  const [zoom, setZoom] = useState(1);
 
   const logRef = useRef<HTMLPreElement | null>(null);
   const debounceRef = useRef<number | null>(null);
@@ -233,6 +259,39 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
           {showAutoBadge && <span className={styles.autoBadge}>auto</span>}
         </div>
         <div className={styles.actions}>
+          <div className={styles.zoomGroup} role="group" aria-label="Preview zoom">
+            <button
+              type="button"
+              className={styles.zoomBtn}
+              disabled={!svg || zoom <= ZOOM_STOPS[0]}
+              onClick={() => setZoom((z) => nearestZoomStep(z, -1))}
+              aria-label="Zoom out"
+              title="Zoom out"
+            >
+              <ZoomOutIcon />
+            </button>
+            <button
+              type="button"
+              className={styles.zoomLevel}
+              disabled={!svg}
+              onClick={() => setZoom(1)}
+              aria-label={`Reset zoom to 100% (currently ${Math.round(zoom * 100)}%)`}
+              title="Reset to 100%"
+            >
+              {Math.round(zoom * 100)}%
+            </button>
+            <button
+              type="button"
+              className={styles.zoomBtn}
+              disabled={!svg || zoom >= ZOOM_STOPS[ZOOM_STOPS.length - 1]}
+              onClick={() => setZoom((z) => nearestZoomStep(z, 1))}
+              aria-label="Zoom in"
+              title="Zoom in"
+            >
+              <ZoomInIcon />
+            </button>
+          </div>
+
           <Button
             size="sm"
             variant="ghost"
@@ -306,7 +365,14 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
       <div className={styles.body}>
         <div className={styles.stage}>
           {dataUrl ? (
-            <div className={styles.frame}>
+            <div
+              className={styles.frame}
+              /* `zoom` (vs. transform: scale) drives layout too, so the
+                  stage's overflow:auto can scroll naturally when zoomed
+                  past the viewport. Chromium-only — but WebContainers
+                  already requires Chromium. */
+              style={{ zoom }}
+            >
               <img className={styles.image} src={dataUrl} alt="container output" draggable={false} />
             </div>
           ) : (

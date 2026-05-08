@@ -27,40 +27,43 @@ interface Palette {
   comment: string;
 }
 
+// Editor backgrounds use a near-transparent ink so the parent card's
+// glass and the body's ambient mesh both shimmer through. Selection &
+// cursor pick up the new iris-violet accent.
 const DARK: Palette = {
-  bg: '#0a0a0a',
-  bgGutter: '#0a0a0a',
-  bgSelection: 'rgba(124, 95, 255, 0.22)',
+  bg: 'rgba(6, 8, 14, 0.6)',
+  bgGutter: 'rgba(6, 8, 14, 0.4)',
+  bgSelection: 'rgba(166, 152, 255, 0.22)',
   bgActiveLine: 'rgba(255, 255, 255, 0.025)',
-  cursor: '#7c5fff',
-  text: '#ededed',
-  muted: '#6e6e6e',
-  border: '#1a1a1a',
-  command: '#bca6ff',
-  key: '#7cd2ff',
-  string: '#a6e3a1',
-  unit: '#ffd07a',
-  number: '#ffd07a',
-  setting: '#ffb1e3',
-  comment: '#5a5a5a',
+  cursor: '#A698FF',
+  text: '#F5F4FB',
+  muted: '#6E6C85',
+  border: 'rgba(255, 255, 255, 0.06)',
+  command: '#C7BCFF',
+  key: '#7CD2FF',
+  string: '#A6E3A1',
+  unit: '#FFD07A',
+  number: '#FFD07A',
+  setting: '#FFB1E3',
+  comment: '#4F4D63',
 };
 
 const LIGHT: Palette = {
-  bg: '#ffffff',
-  bgGutter: '#ffffff',
-  bgSelection: 'rgba(124, 95, 255, 0.16)',
-  bgActiveLine: 'rgba(0, 0, 0, 0.025)',
-  cursor: '#7c5fff',
-  text: '#1a1a1a',
-  muted: '#9a9a9a',
-  border: '#ececec',
-  command: '#7c5fff', // purple
-  key: '#0e7faa', // cyan
-  string: '#1f8a3a', // green
-  unit: '#b06400', // amber
-  number: '#b06400',
-  setting: '#c8366f', // pink
-  comment: '#9a9a9a',
+  bg: 'rgba(255, 255, 255, 0.7)',
+  bgGutter: 'rgba(255, 255, 255, 0.4)',
+  bgSelection: 'rgba(106, 86, 240, 0.18)',
+  bgActiveLine: 'rgba(15, 15, 25, 0.03)',
+  cursor: '#6A56F0',
+  text: '#14111F',
+  muted: '#8E8AA0',
+  border: 'rgba(15, 15, 25, 0.06)',
+  command: '#5C49DF',
+  key: '#0E7FAA',
+  string: '#1F8A3A',
+  unit: '#B06400',
+  number: '#B06400',
+  setting: '#C8366F',
+  comment: '#A09CB0',
 };
 
 const buildTheme = (p: Palette, dark: boolean) =>
@@ -72,9 +75,11 @@ const buildTheme = (p: Palette, dark: boolean) =>
         height: '100%',
       },
       '.cm-scroller': {
-        fontFamily: "'SF Mono', 'JetBrains Mono', 'Menlo', 'Consolas', monospace",
+        fontFamily:
+          "'JetBrains Mono', 'SF Mono', 'Menlo', 'Consolas', monospace",
         fontSize: '13px',
-        lineHeight: '1.55',
+        lineHeight: '1.6',
+        fontFeatureSettings: '"calt" 1, "ss01" 1',
       },
       '.cm-content': {
         caretColor: p.cursor,

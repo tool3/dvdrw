@@ -1,12 +1,11 @@
 import { useMemo, useState } from 'react';
 import { CastDropZone } from '../components/cast/CastDropZone';
 import { SvgPreview } from '../components/preview/SvgPreview';
-import { OptionsPanel } from '../components/options/OptionsPanel';
 import { Shell } from '../components/layout/Shell';
+import { Card } from '../components/primitives/Card';
 import { useOptionsStore } from '../stores/optionsStore';
 import { useRender } from '../lib/useRender';
 import type { RenderInput } from '../lib/render';
-import styles from './Views.module.scss';
 
 interface CastFile {
   name: string;
@@ -23,28 +22,25 @@ export const CastView = () => {
   );
   const { state, notices } = useRender({ input, options });
 
-  const left = (
-    <div className={styles.column}>
-      <header className={styles.colHeader}>
-        <h2 className={styles.colTitle}>Recording</h2>
-        <span className={styles.colHint}>.cast file</span>
-      </header>
+  const dropCard = (
+    <Card>
       <CastDropZone
         filename={file?.name ?? null}
         onFile={(name, content) => setFile({ name, content })}
         onClear={() => setFile(null)}
       />
-    </div>
+    </Card>
   );
 
-  const center = (
-    <SvgPreview
-      state={state}
-      notices={notices}
-      filename={file ? file.name.replace(/\.cast$/, '.svg') : 'recording.svg'}
-    />
+  const previewCard = (
+    <Card>
+      <SvgPreview
+        state={state}
+        notices={notices}
+        filename={file ? file.name.replace(/\.cast$/, '.svg') : 'recording.svg'}
+      />
+    </Card>
   );
-  const right = <OptionsPanel />;
 
-  return <Shell left={left} center={center} right={right} />;
+  return <Shell primary={dropCard} secondary={previewCard} split="40-60" />;
 };

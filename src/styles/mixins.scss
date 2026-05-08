@@ -1,5 +1,9 @@
+/* Visual mixins for the glass aesthetic. The glass-* mixins are the heart
+   of the design language — they encode the "frosted card with directional
+   highlight + long angled shadow" treatment so any component can opt in. */
+
 @mixin focus-ring {
-  outline: 2px solid var(--brand-ring);
+  outline: 2px solid var(--accent-ring);
   outline-offset: 2px;
 }
 
@@ -12,15 +16,58 @@
   cursor: pointer;
 }
 
-@mixin panel {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
+/* Frosted card. Use for editor / preview / runner / dropzone — anything that
+   should read as a discrete physical surface floating above the canvas.
+   Requires a backdrop the blur can refract; works on top of the body's
+   ambient mesh. */
+@mixin glass-card {
+  position: relative;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-4);
+  box-shadow: var(--shadow-glass);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+}
+
+/* Pill — the floating capsule used for the options menu and segmented
+   controls. Same idiom as glass-card but tighter: smaller radius, shorter
+   shadow, lighter blur so it doesn't visually compete with the cards
+   beneath it. */
+@mixin glass-pill {
+  background: var(--glass-bg-strong);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  box-shadow:
+    0 1px 0 0 var(--glass-highlight) inset,
+    0 -1px 0 0 var(--glass-shadow-inner) inset,
+    var(--shadow-2);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+}
+
+/* Popover — same family but anchored & elevated. Used by PillMenu's
+   per-category panels. */
+@mixin glass-popover {
+  background: var(--glass-bg-strong);
+  border: 1px solid var(--glass-border-strong);
   border-radius: var(--radius-3);
+  box-shadow: var(--shadow-glass), var(--shadow-3);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+}
+
+/* Legacy panel mixin — kept for components we haven't migrated yet. Will
+   be folded into glass-card progressively. */
+@mixin panel {
+  @include glass-card;
 }
 
 @mixin clickable-surface {
-  transition: background-color var(--duration-fast) var(--ease-out),
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
     border-color var(--duration-fast) var(--ease-out),
     color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out),
     transform var(--duration-fast) var(--ease-out);
 }

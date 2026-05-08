@@ -5,7 +5,6 @@ import styles from './TopBar.module.scss';
 
 const ThemeIcon = ({ theme }: { theme: 'dark' | 'light' }) => {
   if (theme === 'dark') {
-    // sun icon (clicking goes to light)
     return (
       <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden>
         <circle cx="8" cy="8" r="3" fill="currentColor" />
@@ -22,7 +21,6 @@ const ThemeIcon = ({ theme }: { theme: 'dark' | 'light' }) => {
       </svg>
     );
   }
-  // moon icon
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden>
       <path
@@ -33,19 +31,31 @@ const ThemeIcon = ({ theme }: { theme: 'dark' | 'light' }) => {
   );
 };
 
-const PresetsIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden>
-    <rect x="1" y="1" width="5" height="5" rx="1.2" fill="currentColor" />
-    <rect x="8" y="1" width="5" height="5" rx="1.2" fill="currentColor" opacity="0.55" />
-    <rect x="1" y="8" width="5" height="5" rx="1.2" fill="currentColor" opacity="0.55" />
-    <rect x="8" y="8" width="5" height="5" rx="1.2" fill="currentColor" opacity="0.3" />
-  </svg>
-);
-
+/**
+ * Brand mark — a stylized aperture/lens silhouette, hinting at the
+ * "captured terminal frame" nature of the product. Built as concentric
+ * shapes so it scales crisply at any size and inherits currentColor.
+ */
 const Mark = () => (
-  <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden>
-    <rect x="2" y="3" width="16" height="14" rx="2.5" fill="none" stroke="currentColor" strokeWidth="1.6" />
-    <path d="M6 7.5L10 13L14 7.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+  <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden>
+    <defs>
+      <linearGradient id="dvdrw-brand-stroke" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="currentColor" stopOpacity="0.95" />
+        <stop offset="100%" stopColor="currentColor" stopOpacity="0.5" />
+      </linearGradient>
+    </defs>
+    <rect
+      x="2"
+      y="2"
+      width="18"
+      height="18"
+      rx="6"
+      fill="none"
+      stroke="url(#dvdrw-brand-stroke)"
+      strokeWidth="1.6"
+    />
+    <circle cx="11" cy="11" r="3.2" fill="currentColor" opacity="0.95" />
+    <circle cx="11" cy="11" r="6.4" fill="none" stroke="currentColor" strokeWidth="1.2" opacity="0.4" />
   </svg>
 );
 
@@ -54,7 +64,6 @@ export const TopBar = () => {
   const toggleTheme = useAppStore((s) => s.toggleTheme);
   const view = useAppStore((s) => s.view);
   const setView = useAppStore((s) => s.setView);
-  const togglePresets = useAppStore((s) => s.togglePresets);
 
   return (
     <header className={styles.bar}>
@@ -62,8 +71,10 @@ export const TopBar = () => {
         <span className={styles.brandMark}>
           <Mark />
         </span>
-        <span className={styles.brandName}>dvdrw</span>
-        <span className={styles.brandTag}>animated terminal SVGs</span>
+        <span className={styles.brandWord}>
+          <span className={styles.brandName}>dvdrw</span>
+          <span className={styles.brandTag}>animated terminal SVGs</span>
+        </span>
       </div>
 
       <div className={styles.center}>
@@ -78,9 +89,6 @@ export const TopBar = () => {
       </div>
 
       <div className={styles.right}>
-        <Button variant="ghost" size="sm" iconLeft={<PresetsIcon />} onClick={togglePresets}>
-          Presets
-        </Button>
         <Button
           variant="ghost"
           size="sm"

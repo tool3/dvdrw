@@ -1,5 +1,8 @@
 @use './tokens.scss';
 
+/* Fonts (General Sans + JetBrains Mono) are loaded via <link> tags in
+   index.html so they preconnect cleanly and don't render-block the CSS. */
+
 *,
 *::before,
 *::after {
@@ -18,17 +21,51 @@ html {
   font-family: var(--font-sans);
   font-size: var(--text-14);
   line-height: var(--leading-normal);
+  font-feature-settings: 'ss01', 'cv01', 'cv02';
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
 }
 
+/* Body painted with the ambient gradient mesh. Two off-stage radial blobs
+   suggest a soft key light from up-and-to-the-left and a cooler bounce
+   from down-and-to-the-right; a third quiet blob mid-right keeps the
+   composition from reading as two-tone. The grain layer (subtle SVG noise
+   inline) prevents banding in the gradients on dark displays. */
 body {
   margin: 0;
+  position: relative;
   background: var(--bg-canvas);
+  background-image:
+    radial-gradient(ellipse 80% 60% at 8% 4%, var(--ambient-1), transparent 60%),
+    radial-gradient(ellipse 60% 50% at 92% 96%, var(--ambient-2), transparent 60%),
+    radial-gradient(ellipse 40% 40% at 78% 38%, var(--ambient-3), transparent 60%);
+  background-attachment: fixed;
   color: var(--text-primary);
-  transition: background-color var(--duration-normal) var(--ease-out),
+  transition:
+    background-color var(--duration-normal) var(--ease-out),
     color var(--duration-normal) var(--ease-out);
+}
+
+/* Grain overlay. Fixed-position so it shimmers behind everything but doesn't
+   interact with hovers or pointer events. The SVG is a tiny tile of fractal
+   noise rendered as feTurbulence; at 0.5% opacity it reads as the faint
+   chromatic noise of a real frosted surface. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.4;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.06 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  background-size: 160px 160px;
+}
+
+#root {
+  position: relative;
+  z-index: 1;
 }
 
 button,
@@ -47,16 +84,16 @@ button {
 }
 
 a {
-  color: var(--brand);
+  color: var(--accent);
   text-decoration: none;
 }
 
 ::selection {
-  background: var(--brand-soft);
+  background: var(--accent-soft);
   color: var(--text-primary);
 }
 
-/* Custom scrollbars (subtle, theme-aware) */
+/* Custom scrollbars — narrower, glassier */
 *::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -66,9 +103,10 @@ a {
 }
 *::-webkit-scrollbar-thumb {
   background: var(--border-default);
-  border: 2px solid transparent;
+  border: 3px solid transparent;
   background-clip: content-box;
   border-radius: 999px;
+  transition: background var(--duration-fast) var(--ease-out);
 }
 *::-webkit-scrollbar-thumb:hover {
   background: var(--border-strong);

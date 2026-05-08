@@ -1,15 +1,29 @@
 .shell {
   display: grid;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: auto auto 1fr;
   height: 100%;
-  background: var(--bg-canvas);
+  /* No solid background here — the body's ambient gradient mesh shows
+     through every glass surface. */
 }
 
+/* The work area. Two flexible columns separated by gentle gap. The columns
+   intentionally stop short of the viewport edges (margin), so the cards
+   feel like they're floating on the canvas rather than hugging the chrome. */
 .main {
   display: grid;
-  grid-template-columns: minmax(360px, 22%) minmax(0, 1fr) minmax(320px, 22%);
-  gap: 0;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5) var(--space-5);
   min-height: 0;
+}
+
+.split_40-60 {
+  grid-template-columns: minmax(360px, 40fr) minmax(0, 60fr);
+}
+.split_50-50 {
+  grid-template-columns: minmax(360px, 1fr) minmax(0, 1fr);
+}
+.split_60-40 {
+  grid-template-columns: minmax(360px, 60fr) minmax(0, 40fr);
 }
 
 .pane {
@@ -17,19 +31,10 @@
   flex-direction: column;
   min-height: 0;
   min-width: 0;
-  border-color: var(--border-subtle);
 }
 
-.left {
-  border-right: 1px solid var(--border-subtle);
-  background: var(--bg-base);
-}
-
-.center {
-  background: var(--bg-canvas);
-}
-
-.right {
-  border-left: 1px solid var(--border-subtle);
-  background: var(--bg-base);
+.primary,
+.secondary {
+  /* Each pane is intended to host a single glass card; we don't paint a
+     background here so the card's own backdrop-filter sees the body. */
 }

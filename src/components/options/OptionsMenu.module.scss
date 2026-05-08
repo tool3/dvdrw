@@ -1,0 +1,159 @@
+@use '../../styles/mixins.scss' as *;
+
+.shell {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-4) var(--space-4) 0;
+  position: relative;
+  z-index: 5;
+}
+
+/* The capsule itself. Slightly elevated above the cards beneath via a
+   tight glass-pill treatment + shadow. The horizontal padding is uneven
+   on purpose — tighter at the leading edge, more generous around the
+   trailing reset button so it reads as separate from the categories. */
+.pill {
+  @include glass-pill;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 6px 8px 6px 6px;
+  /* A faint inner glow on hover/focus-within, so the pill feels alive
+     without being intrusive when at rest. */
+  transition:
+    box-shadow var(--duration-normal) var(--ease-out),
+    border-color var(--duration-normal) var(--ease-out);
+
+  &:focus-within {
+    border-color: var(--glass-border-strong);
+    box-shadow:
+      0 1px 0 0 var(--glass-highlight) inset,
+      0 -1px 0 0 var(--glass-shadow-inner) inset,
+      0 0 0 4px var(--accent-soft),
+      var(--shadow-2);
+  }
+}
+
+.tab {
+  @include reset-button;
+  @include clickable-surface;
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: var(--radius-pill);
+  font-size: var(--text-13);
+  font-weight: var(--weight-medium);
+  letter-spacing: -0.005em;
+  color: var(--text-secondary);
+
+  &:hover {
+    color: var(--text-primary);
+    background: var(--glass-bg-hover);
+  }
+
+  &:focus-visible {
+    @include focus-ring;
+  }
+}
+
+/* Active tab — filled with a soft accent wash. The directional inset
+   highlight on the top edge mirrors the glass-card treatment, so the
+   active tab reads as "lit" rather than just "selected". */
+.tabActive {
+  background: var(--accent-soft);
+  color: var(--accent);
+  box-shadow:
+    0 1px 0 0 rgba(255, 255, 255, 0.12) inset,
+    0 0 0 1px var(--accent-soft),
+    0 4px 12px -4px var(--accent-glow);
+
+  &:hover {
+    background: var(--accent-soft);
+    color: var(--accent-hover);
+  }
+}
+
+.divider {
+  width: 1px;
+  height: 20px;
+  background: var(--glass-border-strong);
+  margin: 0 var(--space-1);
+  opacity: 0.6;
+}
+
+/* Popover — anchored under the active tab. Uses the same glass language as
+   cards but blurrier, so it reads as one layer up.
+   The transform centers it horizontally on its anchor (the parent's `left`
+   inline-style is already the button's center), and the entry animation
+   slides it down a touch while fading in.
+   */
+.popover {
+  position: fixed;
+  z-index: 60;
+  transform: translateX(-50%);
+  width: 320px;
+  padding: var(--space-4) var(--space-4) var(--space-5);
+
+  @include glass-popover;
+
+  animation: popoverIn 220ms var(--ease-spring);
+  transform-origin: top center;
+}
+
+@keyframes popoverIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-8px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
+
+/* Tiny notch pointing up at the active tab — same glass background, rotated
+   45deg and clipped to a triangle by the popover's overflow:hidden. We
+   instead position it half-outside the popover and use the same border. */
+.popoverArrow {
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%) rotate(45deg);
+  width: 12px;
+  height: 12px;
+  background: var(--glass-bg-strong);
+  border-left: 1px solid var(--glass-border-strong);
+  border-top: 1px solid var(--glass-border-strong);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+}
+
+.popoverHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: var(--space-3);
+}
+
+.popoverEyebrow {
+  font-size: var(--text-11);
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.popoverTitle {
+  margin: 0;
+  font-size: var(--text-16);
+  font-weight: var(--weight-semibold);
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+
+.popoverBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}

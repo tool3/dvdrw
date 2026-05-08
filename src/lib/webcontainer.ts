@@ -51,10 +51,9 @@ export const PRELOADED_TOOLS: Array<{
   describe: string;
 }> = [
   { package: 'dvdrw-cli', bin: 'dvd', describe: 'the dvd CLI itself — runs your .cd files' },
-  { package: 'chalk-cli', bin: 'chalk', describe: 'colored terminal output (`chalk red "hi"`)' },
   { package: 'boxen-cli', bin: 'boxen', describe: 'wraps text in box drawings (`boxen "hi"`)' },
+  { package: 'chartscii-cli', bin: 'chartscii', describe: 'create beatiful ascii charts' },
   { package: 'figlet', bin: 'figlet', describe: 'big ASCII letters (`figlet hello`)' },
-  { package: 'cowsay', bin: 'cowsay', describe: 'an opinionated bovine narrator (`cowsay moo`)' },
   { package: 'lolcatjs', bin: 'lolcatjs', describe: 'rainbow text (`lolcatjs hello`)' },
 ];
 
