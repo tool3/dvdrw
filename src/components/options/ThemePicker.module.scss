@@ -33,6 +33,16 @@
   gap: var(--space-2);
 }
 
+/* Wrapper around the card button + (optional) action overlay. The wrapper
+   owns the positioning context so action <button>s can render as siblings
+   of the card <button> instead of children — which would be invalid HTML
+   and trigger React's hydration warning. */
+.cardWrap {
+  position: relative;
+  display: flex;
+  min-width: 0;
+}
+
 /* Individual theme card. The preview pane fills most of the card and
    actually shows the theme's bg/fg so the user can compare side-by-side
    instead of relying on the small label. */
@@ -41,6 +51,7 @@
   @include clickable-surface;
   position: relative;
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: 6px;
   padding: 6px 6px 8px;
@@ -48,6 +59,7 @@
   border: 1px solid var(--glass-border);
   background: var(--glass-bg);
   text-align: left;
+  min-width: 0;
 
   &:hover {
     background: var(--glass-bg-hover);
@@ -114,7 +126,8 @@
 }
 
 /* Hover-revealed action slot for custom theme cards. Sits in the top-
-   right corner of the card so it doesn't compete with the preview. */
+   right corner of the wrapping card cell so it doesn't compete with the
+   preview. */
 .actionSlot {
   position: absolute;
   top: 4px;
@@ -123,9 +136,11 @@
   gap: 2px;
   opacity: 0;
   transition: opacity var(--duration-fast) var(--ease-out);
+  /* Above the card button so clicks land on the action <button>s. */
+  z-index: 1;
 
-  .card:hover &,
-  .card:focus-within & {
+  .cardWrap:hover &,
+  .cardWrap:focus-within & {
     opacity: 1;
   }
 }

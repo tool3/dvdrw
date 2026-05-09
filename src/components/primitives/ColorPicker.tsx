@@ -6,6 +6,7 @@ import {
   useState,
   type CSSProperties,
 } from 'react';
+import { createPortal } from 'react-dom';
 import styles from './ColorPicker.module.scss';
 
 interface ColorPickerProps {
@@ -167,82 +168,88 @@ export const ColorPicker = ({
         aria-label={ariaLabel ?? 'Open color picker'}
       />
 
-      {open && (
-        <div
-          ref={popoverRef}
-          className={styles.popover}
-          style={popoverStyle}
-          role="dialog"
-          aria-label="Color picker"
-        >
+      {open &&
+        createPortal(
           <div
-            ref={svRef}
-            className={styles.svPad}
-            style={{ background: svBackground }}
-            onPointerDown={onSvPointerDown}
-            onPointerMove={onSvPointerMove}
-            onPointerUp={onSvPointerUp}
-            onPointerCancel={onSvPointerUp}
+            ref={popoverRef}
+            className={styles.popover}
+            style={popoverStyle}
+            role="dialog"
+            aria-label="Color picker"
           >
-            <span
-              className={styles.svThumb}
-              style={{
-                left: `${hsv.s * 100}%`,
-                top: `${(1 - hsv.v) * 100}%`,
-                background: safe,
-              }}
-            />
-          </div>
-
-          <input
-            type="range"
-            min={0}
-            max={360}
-            step={1}
-            value={Math.round(hsv.h)}
-            onChange={(e) =>
-              setHsv({ h: Number(e.target.value), s: hsv.s, v: hsv.v })
-            }
-            className={styles.hueRange}
-            aria-label="Hue"
-          />
-
-          <div className={styles.row}>
-            <span
-              className={styles.swatchPreview}
-              style={{ background: safe }}
-              aria-hidden
-            />
-            <input
-              type="text"
-              className={styles.hexInput}
-              value={safe}
-              spellCheck={false}
-              onChange={(e) => {
-                const next = normalizeHex(e.target.value);
-                if (next) onChange(next);
-                else onChange(e.target.value);
-              }}
-              aria-label="Hex color"
-            />
-          </div>
-
-          {presets && presets.length > 0 && (
-            <div className={styles.presets}>
-              {presets.map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  className={styles.presetSwatch}
-                  style={{ background: p }}
-                  onClick={() => onChange(p)}
-                  aria-label={`Set color to ${p}`}
-                />
-              ))}
+            <div
+              ref={svRef}
+              className={styles.svPad}
+              style={{ background: svBackground }}
+              onPointerDown={onSvPointerDown}
+              onPointerMove={onSvPointerMove}
+              onPointerUp={onSvPointerUp}
+              onPointerCancel={onSvPointerUp}
+            >
+              <span
+                className={styles.svThumb}
+                style={{
+                  left: `${hsv.s * 100}%`,
+                  top: `${(1 - hsv.v) * 100}%`,
+                  background: safe,
+                }}
+              />
             </div>
-          )}
-        </div>
-      )}
+
+            <input
+              type="range"
+              min={0}
+              max={360}
+              step={1}
+              value={Math.round(hsv.h)}
+              onChange={(e) =>
+                setHsv({ h: Number(e.target.value), s: hsv.s, v: hsv.v })
+              }
+              className={styles.hueRange}
+              aria-label="Hue"
+            />
+
+            <div className={styles.row}>
+              <span
+                className={styles.swatchPreview}
+                style={{ background: safe }}
+                aria-hidden
+              />
+              <input
+                type="text"
+                className={styles.hexInput}
+                value={safe}
+                spellCheck={false}
+                onChange={(e) => {
+                  const next = normalizeHex(e.target.value);
+                  if (next) onChange(next);
+                  else onChange(e.target.value);
+                }}
+                aria-label="Hex color"
+              />
+            </div>
+
+            {presets && presets.length > 0 && (
+              <div className={styles.presets}>
+                {presets.map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    className={styles.presetSwatch}
+                    style={{ background: p }}
+                    onClick={() => onChange(p)}
+                    aria-label={`Set color to ${p}`}
+                  />
+                ))}
+              </div>
+            )}
+          </div>,
+          // Portal to document.body so the popover escapes any ancestor
+          // with `backdrop-filter`/`transform`/`filter`, which would
+          // otherwise become its containing block (Chrome behaviour) and
+          // pin the "fixed" popover to the wrong origin.
+          document.body,
+        )}
     </>
   );
 };

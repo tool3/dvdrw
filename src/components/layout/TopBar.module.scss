@@ -1,20 +1,51 @@
 @use '../../styles/mixins.scss' as *;
 
+/* Desktop layout: a single row with four areas — brand on the left, the
+   Script/Cast selector and the OptionsMenu pill clustered in the centre,
+   and the theme toggle on the right. Outer 1fr columns absorb extra
+   width so the centre cluster stays visually balanced. */
 .bar {
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: 1fr auto auto 1fr;
+  grid-template-areas: 'brand selector options right';
   align-items: center;
-  gap: var(--space-4);
+  column-gap: var(--space-3);
+  row-gap: var(--space-2);
   padding: var(--space-4) var(--space-5);
   position: relative;
   z-index: 4;
 }
 
 .brand {
+  grid-area: brand;
   display: flex;
   align-items: center;
   gap: var(--space-3);
   min-width: 0;
+  justify-self: start;
+}
+
+.selector {
+  grid-area: selector;
+  justify-self: end;
+  display: flex;
+  align-items: center;
+}
+
+.options {
+  grid-area: options;
+  justify-self: start;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.right {
+  grid-area: right;
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 /* Brand mark in a tinted glass capsule. The accent color subtly leaks
@@ -65,43 +96,31 @@
   }
 }
 
-/* Center cluster holds two pills side-by-side: the Script/Cast view
-   switcher (compact) and the OptionsMenu pill (the wide one). They sit
-   on the same baseline as the brand and the theme toggle so the entire
-   chrome reads as a single horizontal row. */
-.center {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-3);
-  min-width: 0;
-}
-
-.right {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  justify-content: flex-end;
-}
-
-/* Mobile: tighten paddings, drop the brand wordmark cluster down to just
-   the mark, and let the center cluster wrap if its two pills can't share
-   a row with the chrome. The fixed `1fr auto 1fr` grid stays valid; the
-   side columns simply shrink. */
+/* Mobile: keep the brand mark and the Script/Cast selector together on
+   row 1, drop the wide OptionsMenu pill to row 2 spanning the full width.
+   This gives the chrome more vertical breathing room and lets the
+   options pill expand into the space the centre cluster used to claim. */
 @media (max-width: 720px) {
   .bar {
     grid-template-columns: auto 1fr auto;
-    gap: var(--space-2);
-    padding: var(--space-3) var(--space-3);
+    grid-template-areas:
+      'brand   selector right'
+      'options options  options';
+    column-gap: var(--space-2);
+    row-gap: var(--space-3);
+    padding: var(--space-3);
   }
 
   .brandWord {
     display: none;
   }
 
-  .center {
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    gap: var(--space-2);
+  .selector {
+    justify-self: center;
+  }
+
+  .options {
+    justify-self: stretch;
+    width: 100%;
   }
 }

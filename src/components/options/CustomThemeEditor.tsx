@@ -13,12 +13,6 @@ import styles from './CustomThemeEditor.module.scss';
 interface CustomThemeEditorProps {
   /** When provided, editor is in "edit" mode; otherwise "create". */
   theme: CustomTheme | null;
-  /**
-   * Pre-fill colors for create mode (e.g. when promoting an inline
-   * `Set Theme {json}` directive into a saved theme). Ignored when `theme`
-   * is provided. Missing fields fall back to DEFAULT_FORM.
-   */
-  initialColors?: Partial<Omit<CustomTheme, 'id'>>;
   onClose: () => void;
 }
 
@@ -87,26 +81,16 @@ const COLOR_GROUPS: {
   },
 ];
 
-export const CustomThemeEditor = ({
-  theme,
-  initialColors,
-  onClose,
-}: CustomThemeEditorProps) => {
+export const CustomThemeEditor = ({ theme, onClose }: CustomThemeEditorProps) => {
   const addTheme = useCustomThemesStore((s) => s.addTheme);
   const updateTheme = useCustomThemesStore((s) => s.updateTheme);
   const setOption = useOptionsStore((s) => s.set);
 
   const [form, setForm] = useState<Omit<CustomTheme, 'id'>>(() => {
-    if (theme) {
-      const { id, ...rest } = theme;
-      void id;
-      return rest;
-    }
-    if (initialColors) {
-      // Merge over defaults so any missing fields stay valid color strings.
-      return { ...DEFAULT_FORM, ...initialColors };
-    }
-    return DEFAULT_FORM;
+    if (!theme) return DEFAULT_FORM;
+    const { id, ...rest } = theme;
+    void id;
+    return rest;
   });
 
   const update = <K extends keyof Omit<CustomTheme, 'id'>>(

@@ -78,7 +78,7 @@ export const TopBar = () => {
         </span>
       </div>
 
-      <div className={styles.center}>
+      <div className={styles.selector}>
         <SegmentedControl
           value={view}
           onChange={setView}
@@ -88,6 +88,9 @@ export const TopBar = () => {
             { label: 'Cast', value: 'cast' },
           ]}
         />
+      </div>
+
+      <div className={styles.options}>
         <OptionsMenu />
       </div>
 

@@ -403,6 +403,67 @@
   font-size: var(--text-12);
 }
 
+/* Console section — wraps the toggle row + the (optional) log panel.
+   Collapses to just the header bar when closed; the layout it lives in
+   (Runner .body grid) lets it shrink so the stage gets the freed space. */
+.consoleSection {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--glass-border);
+}
+
+/* Header that doubles as the open/close affordance. Click anywhere on the
+   row toggles the panel. The chevron rotates and the label stays in
+   place — feels like a disclosure widget. */
+.consoleToggle {
+  @include reset-button;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--text-11);
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+
+  &:hover {
+    color: var(--text-secondary);
+    background: var(--glass-bg-hover);
+  }
+}
+
+.consoleToggleChevron {
+  flex: 0 0 auto;
+  transition: transform var(--duration-fast) var(--ease-spring);
+  transform: rotate(-90deg);
+}
+
+.consoleToggleChevronOpen {
+  transform: rotate(0deg);
+}
+
+.consoleToggleLabel {
+  flex: 1;
+  text-align: left;
+}
+
+/* Tiny dot beside the label when the panel is closed but there's content
+   to read — same idea as an unread indicator, so users don't miss
+   important error output buried in a collapsed log. */
+.consoleToggleBadge {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent-glow);
+  flex: 0 0 auto;
+}
+
 /* Console — the stdout panel beneath the stage. Deep ink-black with the
    ANSI-styled terminal output rendered atop a subtle inner glow that
    suggests a real CRT. */
@@ -431,6 +492,14 @@
 
   span {
     font: inherit;
+  }
+}
+
+/* Mobile: the console is squeezed into limited vertical space, so cap it
+   shorter when expanded. */
+@media (max-width: 720px) {
+  .console {
+    height: 140px;
   }
 }
 

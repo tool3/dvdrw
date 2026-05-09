@@ -1,8 +1,26 @@
 import { useEffect, useRef } from 'react';
 import { useScriptStore } from '../stores/scriptStore';
 import { useOptionsStore, type RenderOptions } from '../stores/optionsStore';
-import { useCustomThemesStore } from '../stores/customThemesStore';
-import { extractSettings, patchSetting } from './scriptSync';
+import {
+  newCustomThemeId,
+  useCustomThemesStore,
+  type CustomTheme,
+} from '../stores/customThemesStore';
+import { extractSettings, parseInlineTheme, patchSetting } from './scriptSync';
+
+/**
+ * If the script declares an inline `Set Theme {…}` blob and the JSON is a
+ * complete CustomTheme, save it to the library and rewrite settings.theme
+ * to point at the new id. The next render of the picker will show the
+ * new card already selected; no separate "Inline" affordance needed.
+ */
+const promoteInlineThemeIfAny = (settings: Partial<RenderOptions>): void => {
+  const colors = parseInlineTheme(settings.theme);
+  if (!colors) return;
+  const newTheme: CustomTheme = { ...colors, id: newCustomThemeId() };
+  useCustomThemesStore.getState().addTheme(newTheme);
+  settings.theme = newTheme.id;
+};
 
 /**
  * Bidirectional sync between the .cd source and optionsStore.
@@ -33,6 +51,7 @@ export const useScriptOptionsSync = () => {
   useEffect(() => {
     const initialSource = useScriptStore.getState().source;
     const settings = extractSettings(initialSource, customThemesRef.current);
+    promoteInlineThemeIfAny(settings);
     if (Object.keys(settings).length > 0) {
       syncing.current = true;
       useOptionsStore.getState().applyPartial(settings);
@@ -129,6 +148,7 @@ export const useScriptOptionsSync = () => {
       if (syncing.current) return; // change came from options→script
 
       const settings = extractSettings(state.source, customThemesRef.current);
+      promoteInlineThemeIfAny(settings);
       const current = useOptionsStore.getState().options;
       const diff: Partial<RenderOptions> = {};
       for (const [k, v] of Object.entries(settings)) {

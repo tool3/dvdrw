@@ -51,8 +51,11 @@
   .split_60-40 {
     grid-template-columns: minmax(0, 1fr);
     grid-auto-rows: minmax(280px, auto);
-    padding: var(--space-3) var(--space-3) var(--space-4);
-    gap: var(--space-3);
+    padding: var(--space-4) var(--space-3) var(--space-6);
+    /* Generous breathing room between the stacked editor and preview
+       cards — they're each their own physical surface and need the gap
+       to read as such. */
+    gap: var(--space-8);
     /* Allow the page to scroll vertically through both cards rather than
        cramming them into the viewport with two scrollbars stacked. */
     min-height: 0;

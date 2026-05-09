@@ -145,7 +145,7 @@ const parseSettingValue = (
   return value;
 };
 
-const THEME_COLOR_KEYS = [
+export const THEME_COLOR_KEYS = [
   'background',
   'foreground',
   'cursor',
@@ -167,6 +167,40 @@ const THEME_COLOR_KEYS = [
   'brightCyan',
   'brightWhite',
 ] as const;
+
+/**
+ * If `themeValue` is a literal `{...}` JSON blob from a `Set Theme {…}`
+ * directive AND it parses as a complete CustomTheme (every color key
+ * present and stringly typed), return the parsed colors + an inferred
+ * name. Otherwise return null. Used by the sync layer to auto-promote
+ * inline themes into saved CustomThemes the moment they appear in the
+ * script.
+ */
+export const parseInlineTheme = (
+  themeValue: unknown,
+): Omit<CustomTheme, 'id'> | null => {
+  if (typeof themeValue !== 'string') return null;
+  if (!themeValue.trim().startsWith('{')) return null;
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = JSON.parse(themeValue) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== 'object') return null;
+  for (const k of THEME_COLOR_KEYS) {
+    if (typeof parsed[k] !== 'string') return null;
+  }
+  const out = { name: typeof parsed.name === 'string' ? parsed.name : 'Custom theme' } as Omit<
+    CustomTheme,
+    'id'
+  >;
+  for (const k of THEME_COLOR_KEYS) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (out as any)[k] = parsed[k];
+  }
+  return out;
+};
 
 const themesShallowEqual = (
   a: Record<string, unknown>,

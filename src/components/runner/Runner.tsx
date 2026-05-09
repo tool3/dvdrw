@@ -109,6 +109,13 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
   const [depDraft, setDepDraft] = useState('');
   const [installing, setInstalling] = useState(false);
   const [zoom, setZoom] = useState(1);
+  // Console panel starts collapsed on narrow viewports — most of the time
+  // the user wants to see the rendered SVG, not the build log. They can
+  // expand it via the header chip.
+  const [consoleOpen, setConsoleOpen] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return window.matchMedia('(min-width: 961px)').matches;
+  });
 
   const logRef = useRef<HTMLPreElement | null>(null);
   const debounceRef = useRef<number | null>(null);
@@ -471,25 +478,67 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
           )}
         </div>
 
-        <pre ref={logRef} className={styles.console}>
-          {isLogEmpty ? (
-            <span className={styles.consoleHint}>// container output will appear here</span>
-          ) : (
-            lines.map((spans, lineIdx) => (
-              <div key={lineIdx} className={styles.consoleLine}>
-                {spans.length === 0 ? (
-                  '​'
-                ) : (
-                  spans.map((span, i) => (
-                    <span key={i} style={styleToCss(span.style, CONSOLE_FG, CONSOLE_BG)}>
-                      {span.text}
-                    </span>
-                  ))
-                )}
-              </div>
-            ))
+        <section
+          className={[
+            styles.consoleSection,
+            consoleOpen ? styles.consoleSectionOpen : styles.consoleSectionClosed,
+          ].join(' ')}
+        >
+          <button
+            type="button"
+            className={styles.consoleToggle}
+            onClick={() => setConsoleOpen((v) => !v)}
+            aria-expanded={consoleOpen}
+            aria-controls="runner-console"
+          >
+            <svg
+              className={[
+                styles.consoleToggleChevron,
+                consoleOpen ? styles.consoleToggleChevronOpen : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              width="10"
+              height="10"
+              viewBox="0 0 10 10"
+              aria-hidden
+            >
+              <path
+                d="M2 3.5l3 3 3-3"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            <span className={styles.consoleToggleLabel}>Container output</span>
+            {!consoleOpen && !isLogEmpty && (
+              <span className={styles.consoleToggleBadge} aria-hidden />
+            )}
+          </button>
+          {consoleOpen && (
+            <pre id="runner-console" ref={logRef} className={styles.console}>
+              {isLogEmpty ? (
+                <span className={styles.consoleHint}>// container output will appear here</span>
+              ) : (
+                lines.map((spans, lineIdx) => (
+                  <div key={lineIdx} className={styles.consoleLine}>
+                    {spans.length === 0 ? (
+                      '​'
+                    ) : (
+                      spans.map((span, i) => (
+                        <span key={i} style={styleToCss(span.style, CONSOLE_FG, CONSOLE_BG)}>
+                          {span.text}
+                        </span>
+                      ))
+                    )}
+                  </div>
+                ))
+              )}
+            </pre>
           )}
-        </pre>
+        </section>
       </div>
     </div>
   );
