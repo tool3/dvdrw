@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   PRELOADED_TOOLS,
+  diagnoseSupport,
   installPackages,
   isSupported,
   prewarm,
@@ -492,11 +493,14 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
 
               {!supported && (
                 <p className={styles.warn}>
-                  Running scripts requires WebContainers, which need a desktop
-                  Chromium browser (Chrome, Edge, Brave, Arc). iOS / Safari and
-                  Firefox can't boot the sandbox — open this page on a
-                  desktop Chromium browser to run scripts. Editing themes and
-                  options still works here.
+                  Container can't boot in this browser:
+                  <ul>
+                    {diagnoseSupport().reasons.map((r) => (
+                      <li key={r}>{r}</li>
+                    ))}
+                  </ul>
+                  Modern Chrome / Edge / Brave / Arc and Safari 16.4+ should
+                  work. Editing themes and options still works here.
                 </p>
               )}
             </div>

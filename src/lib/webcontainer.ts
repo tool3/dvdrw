@@ -82,19 +82,32 @@ const SEED_TREE: FileSystemTree = {
 /*                               Capability check                            */
 /* ------------------------------------------------------------------------- */
 
-export const isSupported = (): boolean => {
-  if (typeof window === 'undefined') return false;
-  if (!window.crossOriginIsolated) return false;
-  if (typeof SharedArrayBuffer === 'undefined') return false;
-  // WebContainer is Chromium-only — Safari (incl. all iOS browsers, since
-  // they're WebKit under the hood) lacks the WASM/atomics pieces the
-  // container runtime relies on, so cross-origin isolation alone isn't
-  // enough. Bail out early so the UI shows the unsupported placeholder
-  // instead of attempting a boot that will fail mid-install.
-  const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
-  if (/iPad|iPhone|iPod/i.test(ua)) return false;
-  if (/^((?!chrome|android|crios|edg).)*safari/i.test(ua)) return false;
-  return true;
+export const isSupported = (): boolean => diagnoseSupport().ok;
+
+/**
+ * Report which capability check is missing. Used by the runner placeholder
+ * so the unsupported state can be specific ("missing SharedArrayBuffer"
+ * vs "page isn't cross-origin isolated") instead of a generic message —
+ * mostly useful when debugging Safari behaviour where the headers may or
+ * may not be reaching the iOS WebView.
+ */
+export const diagnoseSupport = (): {
+  ok: boolean;
+  reasons: string[];
+} => {
+  if (typeof window === 'undefined') {
+    return { ok: false, reasons: ['no window (server-side)'] };
+  }
+  const reasons: string[] = [];
+  if (!window.crossOriginIsolated) {
+    reasons.push(
+      'page is not cross-origin isolated (server is missing COOP/COEP headers, or a third-party iframe broke isolation)',
+    );
+  }
+  if (typeof SharedArrayBuffer === 'undefined') {
+    reasons.push('SharedArrayBuffer is unavailable in this browser');
+  }
+  return { ok: reasons.length === 0, reasons };
 };
 
 /* ------------------------------------------------------------------------- */
