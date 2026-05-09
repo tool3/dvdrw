@@ -43,6 +43,30 @@
   display: inline-block;
 }
 
+/* On phone widths, opt-in buttons render as just the icon: hide the
+   label, drop the gap, and tighten the horizontal padding so the button
+   becomes a square hit-target. The full text label is still on the
+   element via aria-label / title for screen readers and tooltips. */
+@media (max-width: 720px) {
+  .mobileIconOnly {
+    gap: 0;
+
+    .label {
+      display: none;
+    }
+
+    &.size_sm {
+      width: 30px;
+      padding: 0;
+    }
+
+    &.size_md {
+      width: 36px;
+      padding: 0;
+    }
+  }
+}
+
 .size_sm {
   height: 30px;
   padding: 0 var(--space-3);

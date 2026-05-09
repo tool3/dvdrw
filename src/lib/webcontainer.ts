@@ -84,7 +84,17 @@ const SEED_TREE: FileSystemTree = {
 
 export const isSupported = (): boolean => {
   if (typeof window === 'undefined') return false;
-  return Boolean(window.crossOriginIsolated && typeof SharedArrayBuffer !== 'undefined');
+  if (!window.crossOriginIsolated) return false;
+  if (typeof SharedArrayBuffer === 'undefined') return false;
+  // WebContainer is Chromium-only — Safari (incl. all iOS browsers, since
+  // they're WebKit under the hood) lacks the WASM/atomics pieces the
+  // container runtime relies on, so cross-origin isolation alone isn't
+  // enough. Bail out early so the UI shows the unsupported placeholder
+  // instead of attempting a boot that will fail mid-install.
+  const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+  if (/iPad|iPhone|iPod/i.test(ua)) return false;
+  if (/^((?!chrome|android|crios|edg).)*safari/i.test(ua)) return false;
+  return true;
 };
 
 /* ------------------------------------------------------------------------- */

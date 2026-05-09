@@ -47,6 +47,19 @@ const PlusIcon = () => (
   </svg>
 );
 
+const DownloadIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden>
+    <path
+      d="M6 1.5v6.5M3 5.5L6 8.5L9 5.5M2 10.5h8"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
 /* Lightweight ring spinner. Uses currentColor so it inherits whatever the
    parent's text color is — green during run, accent during boot. */
 const Spinner = ({ size = 32 }: { size?: number }) => (
@@ -356,6 +369,8 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
             disabled={!supported || installing}
             onClick={() => setShowAddDep((v) => !v)}
             title="Install an additional npm package into the container"
+            aria-label="Add package"
+            mobileIconOnly
           >
             Add package
           </Button>
@@ -365,14 +380,21 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
             iconLeft={<RunIcon />}
             disabled={!supported || running || !source.trim()}
             onClick={performRun}
+            title={running ? 'Running…' : hasRunOnce ? 'Re-run script' : 'Run script'}
+            aria-label={running ? 'Running' : hasRunOnce ? 'Re-run' : 'Run'}
+            mobileIconOnly
           >
             {running ? 'Running…' : hasRunOnce ? 'Re-run' : 'Run'}
           </Button>
           <Button
             size="sm"
             variant="secondary"
+            iconLeft={<DownloadIcon />}
             disabled={!svg}
             onClick={() => svg && downloadBlob(svg, filename, 'image/svg+xml')}
+            title="Download SVG"
+            aria-label="Download SVG"
+            mobileIconOnly
           >
             Download SVG
           </Button>
@@ -470,8 +492,11 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
 
               {!supported && (
                 <p className={styles.warn}>
-                  Your browser doesn’t support WebContainers. Open this page in
-                  Chrome, Edge, or Brave with cross-origin isolation.
+                  Running scripts requires WebContainers, which need a desktop
+                  Chromium browser (Chrome, Edge, Brave, Arc). iOS / Safari and
+                  Firefox can't boot the sandbox — open this page on a
+                  desktop Chromium browser to run scripts. Editing themes and
+                  options still works here.
                 </p>
               )}
             </div>

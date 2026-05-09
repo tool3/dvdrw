@@ -10,6 +10,10 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   iconLeft?: ReactNode;
   iconRight?: ReactNode;
   fullWidth?: boolean;
+  /** On narrow viewports (≤720px) hide the text label and shrink padding so
+   *  the button reads as an icon. The full label still goes to the
+   *  accessibility tree via aria-label so screen readers / tooltips work. */
+  mobileIconOnly?: boolean;
 }
 
 export const Button = ({
@@ -18,6 +22,7 @@ export const Button = ({
   iconLeft,
   iconRight,
   fullWidth,
+  mobileIconOnly,
   className,
   children,
   ...rest
@@ -29,6 +34,7 @@ export const Button = ({
       styles[`variant_${variant}`],
       styles[`size_${size}`],
       fullWidth ? styles.fullWidth : '',
+      mobileIconOnly ? styles.mobileIconOnly : '',
       className ?? '',
     ]
       .filter(Boolean)
