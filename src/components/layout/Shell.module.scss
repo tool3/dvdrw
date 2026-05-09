@@ -50,20 +50,33 @@
   .split_50-50,
   .split_60-40 {
     grid-template-columns: minmax(0, 1fr);
-    grid-auto-rows: minmax(280px, auto);
-    padding: var(--space-4) var(--space-3) var(--space-6);
-    /* Generous breathing room between the stacked editor and preview
-       cards — they're each their own physical surface and need the gap
-       to read as such. */
-    gap: var(--space-8);
-    /* Allow the page to scroll vertically through both cards rather than
-       cramming them into the viewport with two scrollbars stacked. */
-    min-height: 0;
-    overflow-y: auto;
+    /* Two equal rows that share whatever the work area has after the
+       TopBar. minmax(0, 1fr) lets each row shrink below its content
+       height so the inner scrollers (CodeMirror / log) take over rather
+       than the main column scrolling the whole app. */
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+    grid-auto-rows: unset;
+    padding: var(--space-3);
+    gap: var(--space-4);
+    overflow: hidden;
   }
 
   .pane {
-    /* Don't let either pane collapse below a usable height when stacked. */
-    min-height: 360px;
+    /* Drop the desktop min-height — on a phone the panes flex-share. */
+    min-height: 0;
+  }
+}
+
+/* Below 540px (typical phones in portrait) the runner card needs to be
+   the priority read; the editor gets a slightly smaller share so the
+   rendered SVG and the (collapsed) console toggle both fit comfortably. */
+@media (max-width: 540px) {
+  .main,
+  .split_40-60,
+  .split_50-50,
+  .split_60-40 {
+    grid-template-rows: minmax(0, 0.85fr) minmax(0, 1.15fr);
+    gap: var(--space-3);
+    padding: var(--space-2);
   }
 }
