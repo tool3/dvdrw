@@ -17,17 +17,52 @@
   min-height: 46px;
 }
 
+/* Mobile: stack the status row above the actions row so the "what's
+   happening" sentence has its own breathing line and the actions
+   (mode chip, zoom, run, download) get the full width on the second
+   row. Without this the toolbar overflows horizontally on phones. */
+@media (max-width: 720px) {
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    min-height: 0;
+  }
+
+  .status {
+    /* Pin the status to the top row, full-width so long status messages
+       wrap rather than push the dot off the side. */
+    width: 100%;
+  }
+
+  .actions {
+    /* Wrap the action cluster so the buttons share the second row
+       without overflowing. */
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    width: 100%;
+  }
+}
+
 .status {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   font-size: var(--text-12);
   color: var(--text-secondary);
+  min-width: 0;
 }
 
 .statusText {
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum' 1;
+  /* Long status sentences ("Installing the demo toolkit (one-time, takes
+     a minute)") would otherwise push the toolbar wider than the card on
+     phones; wrap instead. */
+  min-width: 0;
+  flex: 1;
+  overflow-wrap: anywhere;
 }
 
 /* Status dot — the runner's livelong indicator. Each stage gets its own
