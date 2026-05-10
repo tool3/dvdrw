@@ -155,6 +155,23 @@ const getInstance = async (
   return bootPromise;
 };
 
+/**
+ * Debug flag — when the page is loaded with `?nodeps=1` (or
+ * `?debug-no-deps`), the boot path skips `npm install` entirely. Useful
+ * for isolating "is the container booting at all on this device" from
+ * "is npm install hanging on this device" — particularly on mobile
+ * Safari where the install was failing with code 1.
+ */
+export const isNoDepsDebug = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  try {
+    const params = new URLSearchParams(window.location.search);
+    return params.has('nodeps') || params.has('debug-no-deps');
+  } catch {
+    return false;
+  }
+};
+
 const ensureInstalled = async (
   booted: BootedInstance,
   onLog: (chunk: string) => void,
@@ -163,6 +180,27 @@ const ensureInstalled = async (
   if (booted.installed) return;
   if (!installPromise) {
     installPromise = (async () => {
+      // Debug short-circuit: prove the container booted by running
+      // `node --version` (a tiny built-in) and exit. No npm, no
+      // network, no /node_modules. If this works on iOS Safari but the
+      // real path doesn't, the failure is squarely in the install — not
+      // the container runtime.
+      if (isNoDepsDebug()) {
+        onStage('installing', 'Debug mode: skipping npm install');
+        onLog('debug: ?nodeps=1 — npm install skipped.\n');
+        try {
+          const probe = await booted.instance.spawn('node', ['--version']);
+          probe.output.pipeTo(writableLog(onLog));
+          const code = await probe.exit;
+          onLog(`debug: node --version exited with code ${code}.\n`);
+        } catch (err) {
+          onLog(`debug: spawn failed: ${err instanceof Error ? err.message : String(err)}\n`);
+        }
+        booted.installed = true;
+        onLog('container ready (no toolkit installed).\n');
+        return;
+      }
+
       onStage('installing', `Installing ${BOOT_PACKAGE}`);
       onLog(`installing: ${BOOT_PACKAGE}\n`);
       // --no-progress avoids the carriage-return progress spinner stream

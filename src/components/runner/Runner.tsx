@@ -3,6 +3,7 @@ import {
   PRELOADED_TOOLS,
   diagnoseSupport,
   installPackages,
+  isNoDepsDebug,
   isSupported,
   prewarm,
   runScript,
@@ -123,6 +124,7 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
   autoRunRef.current = autoRun;
 
   const supported = useMemo(() => isSupported(), []);
+  const noDeps = useMemo(() => isNoDepsDebug(), []);
 
   useEffect(() => {
     if (logRef.current) {
@@ -344,9 +346,9 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
             size="sm"
             variant="ghost"
             iconLeft={<PlusIcon />}
-            disabled={!supported || installing}
+            disabled={!supported || installing || noDeps}
             onClick={() => setShowAddDep((v) => !v)}
-            title="Install an additional npm package into the container"
+            title={noDeps ? 'Disabled in debug mode' : 'Install an additional npm package into the container'}
             aria-label="Add package"
             mobileIconOnly
           >
@@ -356,9 +358,17 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
             size="sm"
             variant="primary"
             iconLeft={<RunIcon />}
-            disabled={!supported || running || !source.trim()}
+            disabled={!supported || running || !source.trim() || noDeps}
             onClick={performRun}
-            title={running ? 'Running…' : hasRunOnce ? 'Re-run script' : 'Run script'}
+            title={
+              noDeps
+                ? 'Disabled in debug mode (?nodeps=1)'
+                : running
+                  ? 'Running…'
+                  : hasRunOnce
+                    ? 'Re-run script'
+                    : 'Run script'
+            }
             aria-label={running ? 'Running' : hasRunOnce ? 'Re-run' : 'Run'}
             mobileIconOnly
           >
@@ -478,6 +488,15 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
                   </ul>
                   Modern Chrome / Edge / Brave / Arc and Safari 16.4+ should
                   work. Editing themes and options still works here.
+                </p>
+              )}
+
+              {supported && noDeps && (
+                <p className={styles.warn}>
+                  Debug mode (<code>?nodeps=1</code>): the container booted but
+                  no toolkit was installed, so Run won't work. This page is
+                  useful only for verifying that WebContainers boot at all on
+                  this device. Remove the URL parameter to install dvdrw-cli.
                 </p>
               )}
             </div>

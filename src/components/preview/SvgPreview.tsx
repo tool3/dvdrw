@@ -97,6 +97,9 @@ export const SvgPreview = ({ state, filename = 'output.svg', notices }: SvgPrevi
               if (state.status !== 'ok') return;
               navigator.clipboard.writeText(state.result.svg).catch(() => {});
             }}
+            aria-label="Copy SVG to clipboard"
+            title="Copy SVG"
+            mobileIconOnly
           >
             Copy
           </Button>
@@ -109,6 +112,9 @@ export const SvgPreview = ({ state, filename = 'output.svg', notices }: SvgPrevi
               if (state.status !== 'ok') return;
               downloadBlob(state.result.svg, filename, 'image/svg+xml');
             }}
+            aria-label="Download SVG"
+            title="Download SVG"
+            mobileIconOnly
           >
             Download SVG
           </Button>
