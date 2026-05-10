@@ -41,15 +41,78 @@ export type RunnerStage =
 /* ------------------------------------------------------------------------- */
 
 /**
- * Boot-time dependency — only `dvdrw-cli` is installed upfront because
- * it's the runtime that interprets the .cd file. Larger demo tools used
- * to be preloaded here, but on resource-constrained WebViews (iOS Safari
- * especially) the multi-package install would either hang or stretch
- * for many minutes; users can opt-in via the "Add package" UI in the
- * runner toolbar instead. Showing them in the placeholder card lets the
- * user know they exist without paying their install cost on every boot.
+ * Boot-time dependency.
+ *
+ * We install only the `dvdrw` *library* (pure JS, two tiny deps), not the
+ * `dvdrw-cli` package — the CLI pulls in `node-pty`, a native C++ addon
+ * that fails to install in iOS Safari's WebContainer (no compiler /
+ * prebuilt for that target; npm exits 1). Instead we ship a small shim
+ * `runner.mjs` at the container root that calls the library's `dvd()`
+ * API directly, with no native deps anywhere in the tree.
  */
-const BOOT_PACKAGE = 'dvdrw-cli';
+const BOOT_PACKAGE = 'dvdrw';
+
+/**
+ * Tiny driver that imports the dvdrw library and renders a `.cd` script
+ * to SVG. Replaces the role of `dvdrw-cli`'s `dvd` binary. CLI surface:
+ *   node runner.mjs <input.cd> -o <output.svg> [--key value | --no-key ...]
+ *
+ * Kept intentionally small — we don't need argv parsing libraries for the
+ * options we pass; our caller (optionsToFlags) is the only producer.
+ */
+const RUNNER_SHIM = `
+import dvd from 'dvdrw';
+import { promises as fs } from 'node:fs';
+
+const camel = (s) => s.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+
+const args = process.argv.slice(2);
+const positional = [];
+const options = {};
+for (let i = 0; i < args.length; i++) {
+  const a = args[i];
+  if (a === '-o' || a === '--output') {
+    options.__output = args[++i];
+    continue;
+  }
+  if (a.startsWith('--no-')) {
+    options[camel(a.slice(5))] = false;
+    continue;
+  }
+  if (a.startsWith('--')) {
+    const key = camel(a.slice(2));
+    const next = args[i + 1];
+    if (next === undefined || next.startsWith('--') || next === '-o') {
+      options[key] = true;
+    } else {
+      const n = Number(next);
+      options[key] = Number.isFinite(n) && next.trim() !== '' ? n : next;
+      i++;
+    }
+    continue;
+  }
+  positional.push(a);
+}
+
+const inputPath = positional[0];
+const outputPath = options.__output ?? 'output.svg';
+delete options.__output;
+
+if (!inputPath) {
+  console.error('runner.mjs: missing input path');
+  process.exit(2);
+}
+
+const source = await fs.readFile(inputPath, 'utf8');
+try {
+  const result = await dvd(source, options);
+  await fs.writeFile(outputPath, result.svg);
+  console.log(\`runner: emitted \${outputPath} (\${result.metadata.frameCount} frames)\`);
+} catch (err) {
+  console.error('runner failed:', err?.stack ?? err);
+  process.exit(1);
+}
+`;
 
 /**
  * Surfaced in the runner's placeholder card so users know which demo
@@ -61,7 +124,7 @@ export const PRELOADED_TOOLS: Array<{
   bin: string;
   describe: string;
 }> = [
-  { package: 'dvdrw-cli', bin: 'dvd', describe: 'the dvd CLI itself — runs your .cd files (installed at boot)' },
+  { package: 'dvdrw', bin: 'dvd', describe: 'the dvdrw renderer (installed at boot via the runner.mjs shim)' },
   { package: 'boxen-cli', bin: 'boxen', describe: 'wraps text in box drawings (`boxen "hi"`)' },
   { package: 'chartscii-cli', bin: 'chartscii', describe: 'beautiful ASCII charts' },
   { package: 'figlet', bin: 'figlet', describe: 'big ASCII letters (`figlet hello`)' },
@@ -81,10 +144,11 @@ const PACKAGE_JSON = JSON.stringify(
 
 const SEED_TREE: FileSystemTree = {
   'package.json': { file: { contents: PACKAGE_JSON } },
+  'runner.mjs': { file: { contents: RUNNER_SHIM } },
   'README.md': {
     file: {
       contents:
-        '# dvdrw runner\n\nThis WebContainer is a sandboxed Node.js environment used to run .cd scripts.\n',
+        '# dvdrw runner\n\nThis WebContainer is a sandboxed Node.js environment used to run .cd scripts via the dvdrw library.\n',
     },
   },
 };
@@ -325,12 +389,14 @@ export const runScript = async (
   await booted.instance.fs.writeFile(inputPath, sourceForRun);
 
   const flags = optionsToFlags(input.options);
-  // `npm exec` runs a local bin and inherits PATH so dvd's bash subshells
-  // also find chalk/boxen/figlet/cowsay/lolcatjs.
-  const args = ['exec', '--no', '--', 'dvd', inputPath, '-o', outputPath, ...flags];
-  handlers.onLog(`$ npm ${args.join(' ')}\n`);
+  // Drive our own runner.mjs (seeded into the container at boot) instead
+  // of `dvdrw-cli`'s bin — the CLI's node-pty dep won't install on iOS
+  // Safari. The shim wraps dvdrw's `dvd()` library API and writes to the
+  // same output path the rest of this flow expects.
+  const args = ['runner.mjs', inputPath, '-o', outputPath, ...flags];
+  handlers.onLog(`$ node ${args.join(' ')}\n`);
 
-  const proc = await booted.instance.spawn('npm', args);
+  const proc = await booted.instance.spawn('node', args);
   proc.output.pipeTo(writableLog(handlers.onLog));
 
   const exitCode = await proc.exit;
