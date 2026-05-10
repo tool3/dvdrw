@@ -12,6 +12,7 @@ import { useOptionsStore, type RenderOptions } from '../../stores/optionsStore';
 import { useAppStore } from '../../stores/appStore';
 import { Button } from '../primitives/Button';
 import { TextInput } from '../primitives/Form';
+import { Spinner } from '../primitives/Spinner';
 import { ZoomControls } from '../primitives/ZoomControls';
 import { TerminalBuffer, cellsToSpans } from '../../lib/terminal';
 import { styleToCss } from '../../lib/ansi';
@@ -57,30 +58,6 @@ const DownloadIcon = () => (
       strokeWidth="1.4"
       strokeLinecap="round"
       strokeLinejoin="round"
-    />
-  </svg>
-);
-
-/* Lightweight ring spinner. Uses currentColor so it inherits whatever the
-   parent's text color is — green during run, accent during boot. */
-const Spinner = ({ size = 32 }: { size?: number }) => (
-  <svg
-    width={size}
-    height={size}
-    viewBox="0 0 32 32"
-    className={styles.spinnerSvg}
-    aria-hidden
-  >
-    <circle
-      cx="16"
-      cy="16"
-      r="12"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeDasharray="44 36"
-      opacity="0.85"
     />
   </svg>
 );

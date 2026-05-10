@@ -98,6 +98,40 @@
   letter-spacing: -0.005em;
 }
 
+/* Pending stage — shown while the renderer is walking the cast frames
+   and emitting the SVG. The spinner + sub-copy give the user a visible
+   signal that work is happening, instead of a blank stage with text. */
+.stagePending {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-8);
+  text-align: center;
+  color: var(--accent);
+}
+
+.stagePendingLabel {
+  font-size: var(--text-14);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+}
+
+.stagePendingSub {
+  font-size: var(--text-12);
+  color: var(--text-muted);
+  max-width: 280px;
+  letter-spacing: -0.005em;
+}
+
+/* Inline spinner inside the toolbar's status line — nudged down a hair
+   so it optically centers with the lowercase text alongside it. */
+.inlineSpinner {
+  margin-right: 4px;
+  vertical-align: -2px;
+}
+
 .error {
   display: flex;
   flex-direction: column;

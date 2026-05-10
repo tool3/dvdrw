@@ -323,19 +323,6 @@
   color: var(--success);
 }
 
-.spinnerSvg {
-  display: block;
-  animation: bootSpin 0.9s linear infinite;
-  filter: drop-shadow(0 0 12px currentColor);
-  opacity: 0.85;
-}
-
-@keyframes bootSpin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 .bootSpinnerLabel {
   font-size: var(--text-14);
   font-weight: var(--weight-medium);

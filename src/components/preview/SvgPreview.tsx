@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import type { RenderState } from '../../lib/types';
 import styles from './SvgPreview.module.scss';
 import { Button } from '../primitives/Button';
+import { Spinner } from '../primitives/Spinner';
 import { ZoomControls } from '../primitives/ZoomControls';
 
 interface SvgPreviewProps {
@@ -71,7 +72,12 @@ export const SvgPreview = ({ state, filename = 'output.svg', notices }: SvgPrevi
               <span>{formatBytes(new Blob([state.result.svg]).size)}</span>
             </>
           )}
-          {state.status === 'rendering' && <span className={styles.muted}>Rendering…</span>}
+          {state.status === 'rendering' && (
+            <span className={styles.muted}>
+              <Spinner size={12} tone="accent" className={styles.inlineSpinner} />
+              Rendering…
+            </span>
+          )}
           {state.status === 'idle' && <span className={styles.muted}>Edit a script to render</span>}
           {state.status === 'error' && <span className={styles.errorText}>Render failed</span>}
         </div>
@@ -115,7 +121,15 @@ export const SvgPreview = ({ state, filename = 'output.svg', notices }: SvgPrevi
             <img className={styles.image} src={dataUrl} alt="rendered preview" draggable={false} />
           </div>
         )}
-        {state.status === 'rendering' && <div className={styles.placeholder}>Rendering…</div>}
+        {state.status === 'rendering' && (
+          <div className={styles.stagePending} role="status" aria-live="polite">
+            <Spinner size={36} tone="accent" />
+            <span className={styles.stagePendingLabel}>Rendering…</span>
+            <span className={styles.stagePendingSub}>
+              Walking the cast frames and emitting the animated SVG.
+            </span>
+          </div>
+        )}
         {state.status === 'idle' && <div className={styles.placeholder}>Your preview will appear here.</div>}
         {state.status === 'error' && (
           <div className={styles.error}>

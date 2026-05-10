@@ -41,18 +41,29 @@ export type RunnerStage =
 /* ------------------------------------------------------------------------- */
 
 /**
- * The curated set of npm CLIs preloaded inside the container so .cd scripts
- * have something interesting to demo. Every entry has a real `bin` and is
- * pure-JS or has Linux-x64 prebuilt binaries that work in WebContainer.
+ * Boot-time dependency — only `dvdrw-cli` is installed upfront because
+ * it's the runtime that interprets the .cd file. Larger demo tools used
+ * to be preloaded here, but on resource-constrained WebViews (iOS Safari
+ * especially) the multi-package install would either hang or stretch
+ * for many minutes; users can opt-in via the "Add package" UI in the
+ * runner toolbar instead. Showing them in the placeholder card lets the
+ * user know they exist without paying their install cost on every boot.
+ */
+const BOOT_PACKAGE = 'dvdrw-cli';
+
+/**
+ * Surfaced in the runner's placeholder card so users know which demo
+ * tools are quick to add. None of these are installed at boot time —
+ * use the "Add package" affordance.
  */
 export const PRELOADED_TOOLS: Array<{
   package: string;
   bin: string;
   describe: string;
 }> = [
-  { package: 'dvdrw-cli', bin: 'dvd', describe: 'the dvd CLI itself — runs your .cd files' },
+  { package: 'dvdrw-cli', bin: 'dvd', describe: 'the dvd CLI itself — runs your .cd files (installed at boot)' },
   { package: 'boxen-cli', bin: 'boxen', describe: 'wraps text in box drawings (`boxen "hi"`)' },
-  { package: 'chartscii-cli', bin: 'chartscii', describe: 'create beatiful ascii charts' },
+  { package: 'chartscii-cli', bin: 'chartscii', describe: 'beautiful ASCII charts' },
   { package: 'figlet', bin: 'figlet', describe: 'big ASCII letters (`figlet hello`)' },
   { package: 'lolcatjs', bin: 'lolcatjs', describe: 'rainbow text (`lolcatjs hello`)' },
 ];
@@ -62,7 +73,7 @@ const PACKAGE_JSON = JSON.stringify(
     name: 'dvdrw-runner',
     private: true,
     type: 'module',
-    dependencies: Object.fromEntries(PRELOADED_TOOLS.map((t) => [t.package, 'latest'])),
+    dependencies: { [BOOT_PACKAGE]: 'latest' },
   },
   null,
   2,
@@ -129,21 +140,6 @@ const writableLog = (onLog: (chunk: string) => void) =>
     },
   });
 
-const collectOutput = (
-  onLog: (chunk: string) => void,
-): { stream: WritableStream<string>; getText: () => string } => {
-  let buffer = '';
-  return {
-    stream: new WritableStream<string>({
-      write(chunk) {
-        buffer += chunk;
-        onLog(chunk);
-      },
-    }),
-    getText: () => buffer,
-  };
-};
-
 const getInstance = async (
   onLog: (chunk: string) => void,
 ): Promise<BootedInstance> => {
@@ -167,14 +163,18 @@ const ensureInstalled = async (
   if (booted.installed) return;
   if (!installPromise) {
     installPromise = (async () => {
-      onStage('installing', 'Installing the demo toolkit (one-time, takes a minute)');
-      onLog(
-        `installing: ${PRELOADED_TOOLS.map((t) => t.package).join(', ')}\n`,
-      );
+      onStage('installing', `Installing ${BOOT_PACKAGE}`);
+      onLog(`installing: ${BOOT_PACKAGE}\n`);
+      // --no-progress avoids the carriage-return progress spinner stream
+      // that some WebContainer hosts (iOS Safari especially) don't
+      // flush cleanly; without it the install output streams forever
+      // while npm "renders" progress, and `proc.exit` can stall.
       const proc = await booted.instance.spawn('npm', [
         'install',
         '--no-fund',
         '--no-audit',
+        '--no-progress',
+        '--prefer-offline',
         '--loglevel=error',
       ]);
       proc.output.pipeTo(writableLog(onLog));
@@ -184,31 +184,8 @@ const ensureInstalled = async (
         throw new Error(`npm install exited with code ${code}`);
       }
 
-      // Verify each declared bin actually resolves through `npm exec` so we
-      // surface broken/missing packages clearly instead of letting the first
-      // .cd run mysteriously fail with "command not found".
-      onStage('verifying', 'Verifying preloaded tools');
-      for (const tool of PRELOADED_TOOLS) {
-        const collected = collectOutput(onLog);
-        const check = await booted.instance.spawn('npm', [
-          'exec',
-          '--no',
-          '--',
-          tool.bin,
-          '--help',
-        ]);
-        check.output.pipeTo(collected.stream);
-        const checkCode = await check.exit;
-        const ok = checkCode === 0 || /Usage:|usage:|Options:/i.test(collected.getText());
-        onLog(`  ${ok ? '✓' : '✗'} ${tool.package} — ${tool.bin}\n`);
-        if (!ok && tool.package === 'dvdrw-cli') {
-          installPromise = null;
-          throw new Error('dvd CLI failed to install — cannot continue.');
-        }
-      }
-
       booted.installed = true;
-      onLog('toolkit installed.\n');
+      onLog('toolkit ready.\n');
     })();
   }
   return installPromise;
