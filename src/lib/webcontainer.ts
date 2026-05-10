@@ -14,6 +14,7 @@
 
 import { WebContainer, type FileSystemTree } from '@webcontainer/api';
 import type { RenderOptions } from '../stores/optionsStore';
+import { renderScriptAsync, type ShellExecutor } from './render';
 
 export interface RunResult {
   svg: string;
@@ -236,6 +237,24 @@ export const isNoDepsDebug = (): boolean => {
   }
 };
 
+/**
+ * Mobile-shaped viewport. We use this to switch the runner into a
+ * shell-only mode: the container boots with 0 deps, scripts are
+ * interpreted in-page via dvdrw's library primitives, and the only
+ * thing WebContainer is used for is running `bash -c "<line>"` for
+ * each Type-then-Enter sequence. This dodges the OOM/quota issues that
+ * full installs hit on iOS Safari while still letting users actually
+ * run echo / ls / pipelines built from container shell built-ins.
+ */
+export const isMobileViewport = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.matchMedia('(max-width: 720px)').matches;
+  } catch {
+    return false;
+  }
+};
+
 const ensureInstalled = async (
   booted: BootedInstance,
   onLog: (chunk: string) => void,
@@ -244,24 +263,24 @@ const ensureInstalled = async (
   if (booted.installed) return;
   if (!installPromise) {
     installPromise = (async () => {
-      // Debug short-circuit: prove the container booted by running
-      // `node --version` (a tiny built-in) and exit. No npm, no
-      // network, no /node_modules. If this works on iOS Safari but the
-      // real path doesn't, the failure is squarely in the install — not
-      // the container runtime.
-      if (isNoDepsDebug()) {
-        onStage('installing', 'Debug mode: skipping npm install');
-        onLog('debug: ?nodeps=1 — npm install skipped.\n');
+      // Mobile path or debug ?nodeps=1: container boots, no npm runs.
+      // Mobile uses the container only as a shell sandbox (for echo/ls/
+      // pipelines built from busybox); the actual SVG synthesis happens
+      // in-page via dvdrw, which is already in the app bundle.
+      if (isNoDepsDebug() || isMobileViewport()) {
+        const why = isNoDepsDebug() ? '?nodeps=1' : 'mobile viewport';
+        onStage('installing', 'Skipping npm install');
+        onLog(`(${why}) — npm install skipped.\n`);
         try {
           const probe = await booted.instance.spawn('node', ['--version']);
           probe.output.pipeTo(writableLog(onLog));
           const code = await probe.exit;
-          onLog(`debug: node --version exited with code ${code}.\n`);
+          onLog(`node --version exited with code ${code}.\n`);
         } catch (err) {
-          onLog(`debug: spawn failed: ${err instanceof Error ? err.message : String(err)}\n`);
+          onLog(`spawn failed: ${err instanceof Error ? err.message : String(err)}\n`);
         }
         booted.installed = true;
-        onLog('container ready (no toolkit installed).\n');
+        onLog('container ready (shell-only mode).\n');
         return;
       }
 
@@ -368,6 +387,36 @@ export const runScript = async (
   await ensureInstalled(booted, handlers.onLog, handlers.onStage);
   handlers.onStage('running', 'Running script');
 
+  // Mobile path: container is shell-only, no dvd CLI / shim installed.
+  // We walk the script in-page using dvdrw's library primitives, and
+  // for each typed line followed by Enter we send the line through
+  // `bash -lc` inside the container, capturing its stdout. The
+  // result is composited into the frame stream and rendered to SVG
+  // entirely client-side.
+  if (isMobileViewport() || isNoDepsDebug()) {
+    const executor: ShellExecutor = {
+      run: async (command) => {
+        handlers.onLog(`$ ${command}\n`);
+        const proc = await booted.instance.spawn('bash', ['-lc', command]);
+        let buffer = '';
+        proc.output.pipeTo(
+          new WritableStream<string>({
+            write(chunk) {
+              buffer += chunk;
+              handlers.onLog(chunk);
+            },
+          }),
+        );
+        await proc.exit;
+        return buffer;
+      },
+    };
+    const rendered = await renderScriptAsync(input.source, input.options, executor);
+    handlers.onStage('ready', 'Done');
+    return { svg: rendered.svg, log: '', exitCode: 0 };
+  }
+
+  // Desktop path: shim + dvdrw library installed.
   const inputPath = 'input.cd';
   const outputPath = 'output.svg';
   // dvd-cli has no global "hide cursor" flag for script renders. We fake

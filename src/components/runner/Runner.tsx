@@ -3,6 +3,7 @@ import {
   PRELOADED_TOOLS,
   diagnoseSupport,
   installPackages,
+  isMobileViewport,
   isNoDepsDebug,
   isSupported,
   prewarm,
@@ -125,6 +126,10 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
 
   const supported = useMemo(() => isSupported(), []);
   const noDeps = useMemo(() => isNoDepsDebug(), []);
+  // Mobile viewport gets a stripped-down WebContainer (no npm install, the
+  // container is used purely as a shell sandbox). Add Package wouldn't
+  // do anything useful there, so it's disabled.
+  const mobile = useMemo(() => isMobileViewport(), []);
 
   useEffect(() => {
     if (logRef.current) {
@@ -346,9 +351,15 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
             size="sm"
             variant="ghost"
             iconLeft={<PlusIcon />}
-            disabled={!supported || installing || noDeps}
+            disabled={!supported || installing || noDeps || mobile}
             onClick={() => setShowAddDep((v) => !v)}
-            title={noDeps ? 'Disabled in debug mode' : 'Install an additional npm package into the container'}
+            title={
+              mobile
+                ? 'Mobile uses shell-only mode — packages aren’t installed'
+                : noDeps
+                  ? 'Disabled in debug mode'
+                  : 'Install an additional npm package into the container'
+            }
             aria-label="Add package"
             mobileIconOnly
           >
@@ -493,10 +504,20 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
 
               {supported && noDeps && (
                 <p className={styles.warn}>
-                  Debug mode (<code>?nodeps=1</code>): the container booted but
-                  no toolkit was installed, so Run won't work. This page is
-                  useful only for verifying that WebContainers boot at all on
-                  this device. Remove the URL parameter to install dvdrw-cli.
+                  Debug mode (<code>?nodeps=1</code>): the container is in
+                  shell-only mode. <code>echo</code>, <code>ls</code>, and
+                  pipelines built from container shell built-ins will work;
+                  external npm CLIs won't be available. The SVG is rendered
+                  in-page rather than in the container.
+                </p>
+              )}
+
+              {supported && !noDeps && mobile && (
+                <p className={styles.warn}>
+                  Mobile shell-only mode: the container boots without any npm
+                  install so it fits in memory. You can use shell built-ins
+                  (<code>echo</code>, <code>ls</code>, pipes), but external
+                  CLIs aren't installed. The SVG is rendered in-page.
                 </p>
               )}
             </div>

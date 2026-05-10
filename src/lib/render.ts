@@ -82,6 +82,145 @@ const KEY_TO_INPUT: Record<string, string> = {
 };
 
 /**
+ * Optional shell backend used by `interpretAsync`. When provided, a
+ * `Type "…"` + `Enter` sequence is treated as a real command — the typed
+ * buffer is sent to the executor, and stdout is injected into the
+ * frame stream as if a real shell printed it. Used by the mobile runner
+ * path, which boots a WebContainer with zero deps and uses it only as
+ * a shell sandbox; the actual SVG synthesis stays in-page so we don't
+ * have to install dvdrw inside the container.
+ */
+export interface ShellExecutor {
+  run: (command: string) => Promise<string>;
+}
+
+/**
+ * Async sibling of `interpret` — same state machine, but a Type+Enter
+ * sequence actually runs the typed command through the supplied
+ * `ShellExecutor` and writes the captured stdout into the terminal grid.
+ * Used by the mobile runner so scripts can do `echo hi`, `ls`, etc., even
+ * though dvd isn't installed in the container.
+ */
+export const interpretAsync = async (
+  commands: CDCommand[],
+  termCols: number,
+  termRows: number,
+  theme: Theme,
+  executor: ShellExecutor,
+  onProgress?: (done: number, total: number) => void,
+): Promise<{ frames: FrameData[]; notices: string[] }> => {
+  const ctx: InterpreterContext = {
+    state: createGridState(termCols, termRows),
+    frames: [],
+    theme,
+    time: 0,
+    cursorVisible: true,
+  };
+  captureFrame(ctx);
+
+  const notices: string[] = [];
+  const skip = (label: string) => notices.push(label);
+
+  // Buffer of characters typed since the last Enter — fed to the executor
+  // verbatim when the user "presses Enter" in the script. Backspace
+  // pops from this buffer so editing typed text doesn't desync.
+  let typed = '';
+  let executedCount = 0;
+  const totalEnters = commands.filter(
+    (c) => c.type === 'Key' && c.key === 'Enter',
+  ).length;
+
+  // Crude prompt simulation so successive commands don't visually run
+  // together. We never know the user's real PS1, but a "$ " is a
+  // universal-enough convention for demo recordings.
+  const writePrompt = () => writeAndCapture(ctx, '$ ', 0);
+  writePrompt();
+
+  for (const cmd of commands) {
+    switch (cmd.type) {
+      case 'Type': {
+        const speed = cmd.speed ?? DEFAULT_TYPING_SPEED_MS;
+        for (const char of cmd.text) {
+          typed += char;
+          writeAndCapture(ctx, char, speed);
+        }
+        break;
+      }
+      case 'Key': {
+        if (cmd.key === 'Enter') {
+          writeAndCapture(ctx, '\r\n', 80);
+          const command = typed.trim();
+          typed = '';
+          if (command) {
+            try {
+              const output = await executor.run(command);
+              if (output) {
+                // Normalize lone \n to \r\n so the terminal grid advances
+                // both rows and resets the column — bash output from
+                // WebContainer is line-feed only.
+                const normalized = output.replace(/\r?\n/g, '\r\n');
+                writeAndCapture(ctx, normalized, 0);
+              }
+            } catch (err) {
+              const message = err instanceof Error ? err.message : String(err);
+              writeAndCapture(ctx, `\x1b[31m${message}\x1b[0m\r\n`, 0);
+            }
+            executedCount += 1;
+            onProgress?.(executedCount, totalEnters);
+          }
+          writePrompt();
+        } else if (cmd.key === 'Backspace') {
+          repeat(cmd.count, () => {
+            typed = typed.slice(0, -1);
+            writeAndCapture(ctx, '\b \b', 80);
+          });
+        } else {
+          const input = KEY_TO_INPUT[cmd.key];
+          if (input) repeat(cmd.count, () => writeAndCapture(ctx, input, 80));
+        }
+        break;
+      }
+      case 'Sleep':
+        ctx.time += cmd.duration;
+        captureFrame(ctx);
+        break;
+      case 'Hide':
+        ctx.cursorVisible = false;
+        captureFrame(ctx);
+        break;
+      case 'Show':
+        ctx.cursorVisible = true;
+        captureFrame(ctx);
+        break;
+      case 'Comment':
+      case 'Set':
+      case 'Env':
+      case 'Require':
+      case 'Copy':
+      case 'Paste':
+      case 'Shortcut':
+        break;
+      case 'Output':
+        skip('Output (file output — preview only)');
+        break;
+      case 'Source':
+        skip(`Source ${cmd.file} (sourced scripts not supported in mobile preview)`);
+        break;
+      case 'Wait':
+        skip('Wait (depends on real shell output — using fixed delay)');
+        ctx.time += 500;
+        captureFrame(ctx);
+        break;
+      case 'Screenshot':
+        skip('Screenshot (only meaningful in CLI runs)');
+        break;
+    }
+  }
+
+  return { frames: ctx.frames, notices: Array.from(new Set(notices)) };
+};
+
+/**
  * Walk a parsed CDScript producing frameData. Returns the frames plus any
  * notices about commands we skipped (so the UI can surface them).
  */
@@ -308,6 +447,37 @@ export type RenderInput = ScriptRenderInput | CastRenderInput;
 export interface RenderOutput extends RenderResult {
   notices: string[];
 }
+
+/**
+ * Async variant of `renderInput` for the mobile path: walks the script
+ * with a ShellExecutor so typed commands actually run inside a
+ * WebContainer (no dvd CLI installed there), then synthesizes the SVG
+ * in-page using the same primitives.
+ */
+export const renderScriptAsync = async (
+  source: string,
+  options: RenderOptions,
+  executor: ShellExecutor,
+  onProgress?: (done: number, total: number) => void,
+): Promise<RenderOutput> => {
+  const theme = resolveTheme(options.theme);
+  const script = parseCDScript(source);
+  const charWidth = options.fontSize * CHAR_WIDTH_RATIO;
+  const lineHeightPx = options.fontSize * options.lineHeight;
+  const termCols = Math.max(40, Math.floor(800 / charWidth));
+  const termRows = Math.max(8, Math.floor(420 / lineHeightPx));
+
+  const { frames, notices } = await interpretAsync(
+    script.commands,
+    termCols,
+    termRows,
+    theme,
+    executor,
+    onProgress,
+  );
+  const result = buildAnimation(frames, options, theme);
+  return { ...result, notices };
+};
 
 export const renderInput = (
   input: RenderInput,
