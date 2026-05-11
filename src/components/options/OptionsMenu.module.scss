@@ -141,12 +141,12 @@
   -webkit-backdrop-filter: blur(28px) saturate(180%);
 }
 
-/* Mobile: the popover would otherwise overflow horizontally because the
-   JS anchors it to the centre of a tab inside a horizontally-scrolled
-   pill row. Pin it to the viewport edges with a small margin and cap
-   its height; the inline `left` and centering transform are overridden
-   here. The notch is pointed at the active tab in desktop only — on
-   mobile we hide it because the popover is no longer anchored. */
+/* Mobile: the popover becomes a swipeable bottom panel — full width,
+   pinned to the viewport edges, no transform. The body switches from
+   "render the active section" to "render every section side-by-side
+   inside a scroll-snap track", with dots underneath telling the user
+   which page they're on. The desktop notch is hidden because the panel
+   is no longer anchored to a specific tab. */
 @media (max-width: 720px) {
   .popover {
     /* stylelint-disable declaration-no-important */
@@ -168,21 +168,108 @@
     display: none;
   }
 
-  /* The pill row may not fit all 7+ tabs on a phone — let it scroll
-     horizontally instead of wrapping or shrinking the labels. */
+  /* The pill on mobile contains a scroll-snap track of pages — see the
+     `.pillScroll` / `.pillTrack` block above. The pill itself stays a
+     fixed-height capsule; the inner track handles overflow. */
   .pill {
-    max-width: 100%;
-    overflow-x: auto;
-    scrollbar-width: none;
-
-    &::-webkit-scrollbar {
-      display: none;
-    }
+    width: 100%;
+    overflow: hidden;
+    padding: 4px;
+    gap: 0;
   }
+}
 
-  .tab {
-    flex: 0 0 auto;
+/* Mobile pill pagination. The pill becomes a horizontally scrolling
+   container whose children are full-pill-width pages; native CSS
+   scroll-snap locks the swipe to one page at a time. A column wrapper
+   stacks the pill on top of the dot indicator. Adapted from
+   shellfied's Toolbar pattern. */
+.mobilePillColumn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-width: 0;
+}
+
+.pillScroll {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  border-radius: var(--radius-pill);
+
+  &::-webkit-scrollbar {
+    display: none;
   }
+}
+
+.pillTrack {
+  display: flex;
+  min-width: 100%;
+}
+
+/* Each page fills exactly the pill's width. flex 0 0 100% prevents
+   children from being shrunk to fit, and scroll-snap-align: start
+   locks the swipe so the user never lands between pages. */
+.pillPage {
+  flex: 0 0 100%;
+  scroll-snap-align: start;
+  display: flex;
+  align-items: center;
+  justify-content: space-evenly;
+  gap: var(--space-1);
+  /* Match the pill's inner padding so all pages line up vertically. */
+  padding: 0 2px;
+}
+
+.pillSlot {
+  display: inline-flex;
+  flex: 1 1 0;
+  min-width: 0;
+  justify-content: center;
+}
+
+/* Each tab/button inside a page can shrink without truncating its label
+   thanks to the page's `space-evenly` distribution. */
+.mobilePillColumn .tab {
+  padding: 0 12px;
+  min-width: 0;
+}
+
+.dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.dot {
+  @include reset-button;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  opacity: 0.35;
+  transition:
+    width var(--duration-fast) var(--ease-spring),
+    background-color var(--duration-fast) var(--ease-out),
+    opacity var(--duration-fast) var(--ease-out);
+  cursor: pointer;
+}
+
+.dotActive {
+  opacity: 1;
+  background: var(--accent);
+  /* The active dot stretches into a pill — clear "you are here"
+     marker, same idiom as shellfied. */
+  width: 18px;
+  border-radius: 999px;
 }
 
 /* Make the popover entry animation honour the override on mobile so the
