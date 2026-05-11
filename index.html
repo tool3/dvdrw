@@ -2,7 +2,15 @@
 <html lang="en" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- maximum-scale=1 + user-scalable=no stops iOS Safari from auto-zooming
+         the page whenever a text/range input gains focus. This is a code
+         editor + form-heavy UI; users were ending up with a zoomed-in
+         viewport after every interaction. Pinch-zoom is sacrificed
+         deliberately so the editing surface stays stable. -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
     <meta name="color-scheme" content="dark light" />
     <title>dvdrw — animated terminal SVGs</title>
 

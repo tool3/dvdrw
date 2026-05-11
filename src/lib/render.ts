@@ -27,11 +27,46 @@ import type {
   AnimationOptions,
   CDCommand,
   FrameData,
+  Gradient,
   GridState,
   Theme,
 } from 'dvdrw';
 import type { RenderOptions } from '../stores/optionsStore';
 import type { RenderResult } from './types';
+
+/**
+ * Parse `gradient(#a, #b[:direction[:reverse]])` syntax into the Gradient
+ * shape the low-level emitters expect. Mirrors shellfie's parseGradient
+ * (which `dvdrw`'s high-level `dvd()` API runs internally) — we duplicate
+ * the parser here because our `buildAnimation` calls the emitters
+ * directly and they assume the background has already been parsed.
+ * Anything that isn't gradient syntax (a hex string, undefined) is
+ * passed through unchanged.
+ */
+const parseBackground = (
+  value: string | undefined,
+): string | Gradient | undefined => {
+  if (!value) return undefined;
+  if (!value.startsWith('gradient(')) return value;
+  const match = value.match(/^gradient\(([^)]+)\)$/);
+  if (!match) return value;
+  const [colorsPart, ...options] = match[1].split(':');
+  const colors = colorsPart
+    .split(',')
+    .map((c) => c.trim())
+    .filter((c) => c.length > 0);
+  if (colors.length === 0) return value;
+  const gradient: Gradient = { type: 'gradient', colors };
+  for (const opt of options) {
+    const t = opt.trim().toLowerCase();
+    if (t === 'horizontal' || t === 'vertical' || t === 'diagonal') {
+      gradient.direction = t;
+    } else if (t === 'reverse' || t === 'reversed') {
+      gradient.reverse = true;
+    }
+  }
+  return gradient;
+};
 
 const CHAR_WIDTH_RATIO = 0.6;
 const DEFAULT_TYPING_SPEED_MS = 50;
@@ -358,6 +393,13 @@ const buildAnimation = (
 
   let svg: string;
 
+  // Background may be either a raw hex (e.g. "#1e1e2e") or the gradient
+  // syntax dvdrw's high-level API accepts (`gradient(#a, #b:vertical)`).
+  // Low-level emitters want it pre-parsed; if we hand them the raw
+  // gradient string they bail and paint nothing — which is the "black
+  // background" the user was seeing.
+  const background = parseBackground(options.background);
+
   if (options.engine === 'smil') {
     const result = emitAnimated(frames, {
       theme,
@@ -378,7 +420,7 @@ const buildAnimation = (
       cursorStyle: options.cursorStyle,
       cursorColor: options.cursorColor,
       cursorBlink: options.cursorBlink,
-      background: options.background,
+      background,
       backgroundPadding: options.backgroundPadding,
       backgroundRadius: options.backgroundRadius,
       fps: options.fps,
@@ -408,7 +450,7 @@ const buildAnimation = (
         cursorStyle: options.cursorStyle,
         cursorColor: options.cursorColor,
         cursorBlink: options.cursorBlink,
-        background: options.background,
+        background,
         backgroundPadding: options.backgroundPadding,
         backgroundRadius: options.backgroundRadius,
         customGlyphs: true,

@@ -351,13 +351,13 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
             size="sm"
             variant="ghost"
             iconLeft={<PlusIcon />}
-            disabled={!supported || installing || noDeps || mobile}
+            disabled={!supported || installing || noDeps}
             onClick={() => setShowAddDep((v) => !v)}
             title={
-              mobile
-                ? 'Mobile uses shell-only mode — packages aren’t installed'
-                : noDeps
-                  ? 'Disabled in debug mode'
+              noDeps
+                ? 'Disabled in debug mode'
+                : mobile
+                  ? 'Try installing a package (may fail on iOS Safari due to memory limits)'
                   : 'Install an additional npm package into the container'
             }
             aria-label="Add package"

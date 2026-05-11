@@ -65,6 +65,16 @@
     background-color var(--duration-fast) var(--ease-out),
     box-shadow var(--duration-fast) var(--ease-out);
 
+  /* Belt-and-suspenders against iOS focus auto-zoom. Even with
+     `maximum-scale=1, user-scalable=no` on the viewport meta, certain
+     iOS versions still auto-zoom inputs whose font-size is below 16px.
+     Bumping the rendered font on phones eliminates that without
+     affecting desktop sizing. */
+  @media (max-width: 720px) {
+    font-size: 16px;
+    height: 38px;
+  }
+
   &::placeholder {
     color: var(--text-muted);
   }

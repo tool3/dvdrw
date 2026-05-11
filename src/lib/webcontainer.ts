@@ -42,92 +42,31 @@ export type RunnerStage =
 /* ------------------------------------------------------------------------- */
 
 /**
- * Boot-time dependency.
+ * Boot-time dependencies for the desktop path. The container installs
+ * these once per session via npm and they stay resident; subsequent runs
+ * skip the install. `dvdrw-cli` is the actual interpreter that turns a
+ * `.cd` file into an SVG; `chartscii-cli` is shipped because demo
+ * scripts reach for charts often and we'd rather not make every user
+ * add it manually.
  *
- * We install only the `dvdrw` *library* (pure JS, two tiny deps), not the
- * `dvdrw-cli` package — the CLI pulls in `node-pty`, a native C++ addon
- * that fails to install in iOS Safari's WebContainer (no compiler /
- * prebuilt for that target; npm exits 1). Instead we ship a small shim
- * `runner.mjs` at the container root that calls the library's `dvd()`
- * API directly, with no native deps anywhere in the tree.
+ * Mobile takes a different path — see `isMobileViewport` below — and
+ * installs nothing, using the container only as a shell sandbox.
  */
-const BOOT_PACKAGE = 'dvdrw';
-
-/**
- * Tiny driver that imports the dvdrw library and renders a `.cd` script
- * to SVG. Replaces the role of `dvdrw-cli`'s `dvd` binary. CLI surface:
- *   node runner.mjs <input.cd> -o <output.svg> [--key value | --no-key ...]
- *
- * Kept intentionally small — we don't need argv parsing libraries for the
- * options we pass; our caller (optionsToFlags) is the only producer.
- */
-const RUNNER_SHIM = `
-import dvd from 'dvdrw';
-import { promises as fs } from 'node:fs';
-
-const camel = (s) => s.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
-
-const args = process.argv.slice(2);
-const positional = [];
-const options = {};
-for (let i = 0; i < args.length; i++) {
-  const a = args[i];
-  if (a === '-o' || a === '--output') {
-    options.__output = args[++i];
-    continue;
-  }
-  if (a.startsWith('--no-')) {
-    options[camel(a.slice(5))] = false;
-    continue;
-  }
-  if (a.startsWith('--')) {
-    const key = camel(a.slice(2));
-    const next = args[i + 1];
-    if (next === undefined || next.startsWith('--') || next === '-o') {
-      options[key] = true;
-    } else {
-      const n = Number(next);
-      options[key] = Number.isFinite(n) && next.trim() !== '' ? n : next;
-      i++;
-    }
-    continue;
-  }
-  positional.push(a);
-}
-
-const inputPath = positional[0];
-const outputPath = options.__output ?? 'output.svg';
-delete options.__output;
-
-if (!inputPath) {
-  console.error('runner.mjs: missing input path');
-  process.exit(2);
-}
-
-const source = await fs.readFile(inputPath, 'utf8');
-try {
-  const result = await dvd(source, options);
-  await fs.writeFile(outputPath, result.svg);
-  console.log(\`runner: emitted \${outputPath} (\${result.metadata.frameCount} frames)\`);
-} catch (err) {
-  console.error('runner failed:', err?.stack ?? err);
-  process.exit(1);
-}
-`;
+const BOOT_PACKAGES = ['dvdrw-cli', 'chartscii-cli'] as const;
 
 /**
  * Surfaced in the runner's placeholder card so users know which demo
- * tools are quick to add. None of these are installed at boot time —
- * use the "Add package" affordance.
+ * tools are quick to add. The first two come pre-installed; the rest
+ * are opt-in via the "Add package" affordance.
  */
 export const PRELOADED_TOOLS: Array<{
   package: string;
   bin: string;
   describe: string;
 }> = [
-  { package: 'dvdrw', bin: 'dvd', describe: 'the dvdrw renderer (installed at boot via the runner.mjs shim)' },
+  { package: 'dvdrw-cli', bin: 'dvd', describe: 'the dvd CLI — runs your .cd files (installed at boot)' },
+  { package: 'chartscii-cli', bin: 'chartscii', describe: 'beautiful ASCII charts (installed at boot)' },
   { package: 'boxen-cli', bin: 'boxen', describe: 'wraps text in box drawings (`boxen "hi"`)' },
-  { package: 'chartscii-cli', bin: 'chartscii', describe: 'beautiful ASCII charts' },
   { package: 'figlet', bin: 'figlet', describe: 'big ASCII letters (`figlet hello`)' },
   { package: 'lolcatjs', bin: 'lolcatjs', describe: 'rainbow text (`lolcatjs hello`)' },
 ];
@@ -137,7 +76,7 @@ const PACKAGE_JSON = JSON.stringify(
     name: 'dvdrw-runner',
     private: true,
     type: 'module',
-    dependencies: { [BOOT_PACKAGE]: 'latest' },
+    dependencies: Object.fromEntries(BOOT_PACKAGES.map((p) => [p, 'latest'])),
   },
   null,
   2,
@@ -145,11 +84,10 @@ const PACKAGE_JSON = JSON.stringify(
 
 const SEED_TREE: FileSystemTree = {
   'package.json': { file: { contents: PACKAGE_JSON } },
-  'runner.mjs': { file: { contents: RUNNER_SHIM } },
   'README.md': {
     file: {
       contents:
-        '# dvdrw runner\n\nThis WebContainer is a sandboxed Node.js environment used to run .cd scripts via the dvdrw library.\n',
+        '# dvdrw runner\n\nThis WebContainer is a sandboxed Node.js environment used to run .cd scripts.\n',
     },
   },
 };
@@ -284,8 +222,8 @@ const ensureInstalled = async (
         return;
       }
 
-      onStage('installing', `Installing ${BOOT_PACKAGE}`);
-      onLog(`installing: ${BOOT_PACKAGE}\n`);
+      onStage('installing', `Installing ${BOOT_PACKAGES.join(', ')}`);
+      onLog(`installing: ${BOOT_PACKAGES.join(', ')}\n`);
       // --no-progress avoids the carriage-return progress spinner stream
       // that some WebContainer hosts (iOS Safari especially) don't
       // flush cleanly; without it the install output streams forever
@@ -397,7 +335,14 @@ export const runScript = async (
     const executor: ShellExecutor = {
       run: async (command) => {
         handlers.onLog(`$ ${command}\n`);
-        const proc = await booted.instance.spawn('bash', ['-lc', command]);
+        // Prepend ./node_modules/.bin to PATH so locally-installed npm
+        // bins (added via the "Add package" UI) are reachable as bare
+        // command names — `chartscii 1 2 3` instead of `npx chartscii …`.
+        // This is harmless when nothing's installed yet.
+        const proc = await booted.instance.spawn('bash', [
+          '-c',
+          `export PATH=./node_modules/.bin:$PATH; ${command}`,
+        ]);
         let buffer = '';
         proc.output.pipeTo(
           new WritableStream<string>({
@@ -438,14 +383,13 @@ export const runScript = async (
   await booted.instance.fs.writeFile(inputPath, sourceForRun);
 
   const flags = optionsToFlags(input.options);
-  // Drive our own runner.mjs (seeded into the container at boot) instead
-  // of `dvdrw-cli`'s bin — the CLI's node-pty dep won't install on iOS
-  // Safari. The shim wraps dvdrw's `dvd()` library API and writes to the
-  // same output path the rest of this flow expects.
-  const args = ['runner.mjs', inputPath, '-o', outputPath, ...flags];
-  handlers.onLog(`$ node ${args.join(' ')}\n`);
+  // `npm exec` runs the local `dvd` bin and inherits PATH so any extra
+  // CLIs the user has added (chartscii, figlet, …) are reachable from
+  // dvd's spawned subshells.
+  const args = ['exec', '--no', '--', 'dvd', inputPath, '-o', outputPath, ...flags];
+  handlers.onLog(`$ npm ${args.join(' ')}\n`);
 
-  const proc = await booted.instance.spawn('node', args);
+  const proc = await booted.instance.spawn('npm', args);
   proc.output.pipeTo(writableLog(handlers.onLog));
 
   const exitCode = await proc.exit;

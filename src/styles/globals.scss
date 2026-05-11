@@ -93,6 +93,17 @@ a {
   color: var(--text-primary);
 }
 
+/* Belt-and-suspenders against iOS focus auto-zoom: even with
+   `user-scalable=no` on the viewport meta, focusing a contenteditable or
+   input element with font-size < 16px occasionally still triggers a zoom
+   on certain iOS versions. Bumping the editor's font on phones is the
+   reliable fix. */
+@media (max-width: 720px) {
+  .cm-scroller {
+    font-size: 16px !important;
+  }
+}
+
 /* Custom scrollbars — narrower, glassier */
 *::-webkit-scrollbar {
   width: 10px;
