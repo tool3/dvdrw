@@ -261,6 +261,7 @@ export const ThemePicker = () => {
         size="sm"
         fullWidth
         onClick={() => setEditorState({ kind: 'create' })}
+        className={styles.customTheme}
         iconLeft={
           <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden>
             <path

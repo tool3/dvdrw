@@ -205,11 +205,7 @@ export const OptionsMenu = () => {
           role="dialog"
           aria-label={`${activeSection.label} options`}
         >
-          <div className={styles.popoverArrow} aria-hidden />
           <header className={styles.popoverHeader}>
-            <span className={styles.popoverEyebrow}>
-              {activeSection.id === presetsSection.id ? 'One-click looks' : 'Customize'}
-            </span>
             <h3 className={styles.popoverTitle}>{activeSection.label}</h3>
           </header>
           <div className={styles.popoverBody}>{activeSection.body}</div>
