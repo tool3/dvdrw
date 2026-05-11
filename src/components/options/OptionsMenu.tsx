@@ -179,7 +179,7 @@ export const OptionsMenu = () => {
 
         <span className={styles.divider} aria-hidden />
 
-        {renderTab(presetsSection, <PresetsIcon />)}
+        {renderTab(presetsSection)}
 
         <Button
           size="sm"

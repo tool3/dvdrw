@@ -327,8 +327,6 @@ export const interpretAsync = async (
       case 'Require':
       case 'Copy':
       case 'Paste':
-      case 'Shortcut':
-        break;
       case 'Output':
         skip('Output (file output — preview only)');
         break;

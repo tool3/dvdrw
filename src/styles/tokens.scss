@@ -31,12 +31,17 @@
 
   /* Typography
      ----------
-     General Sans (Fontshare) for the UI — characterful premium grotesk.
-     JetBrains Mono for code & runtime — distinctive monospace.
+     Manrope for the UI — a clean, modern grotesk.
+     Syne for the dvdrw wordmark only — a distinctive display face used
+     to give the brand a recognizable mark without bleeding character
+     into the rest of the chrome.
+     JetBrains Mono for the code editor & runtime output — monospace.
      System stacks fall back if the network fonts haven't loaded yet. */
   --font-sans:
-    'General Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI Variable',
+    'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI Variable',
     'Segoe UI', Helvetica, sans-serif;
+  --font-display:
+    'Syne', 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono:
     'JetBrains Mono', 'SF Mono', 'Menlo', 'Consolas', 'Roboto Mono', monospace;
 

@@ -32,34 +32,6 @@ const ThemeIcon = ({ theme }: { theme: 'dark' | 'light' }) => {
   );
 };
 
-/**
- * Brand mark — a stylized aperture/lens silhouette, hinting at the
- * "captured terminal frame" nature of the product. Built as concentric
- * shapes so it scales crisply at any size and inherits currentColor.
- */
-const Mark = () => (
-  <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden>
-    <defs>
-      <linearGradient id="dvdrw-brand-stroke" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="currentColor" stopOpacity="0.95" />
-        <stop offset="100%" stopColor="currentColor" stopOpacity="0.5" />
-      </linearGradient>
-    </defs>
-    <rect
-      x="2"
-      y="2"
-      width="18"
-      height="18"
-      rx="6"
-      fill="none"
-      stroke="url(#dvdrw-brand-stroke)"
-      strokeWidth="1.6"
-    />
-    <circle cx="11" cy="11" r="3.2" fill="currentColor" opacity="0.95" />
-    <circle cx="11" cy="11" r="6.4" fill="none" stroke="currentColor" strokeWidth="1.2" opacity="0.4" />
-  </svg>
-);
-
 export const TopBar = () => {
   const theme = useAppStore((s) => s.theme);
   const toggleTheme = useAppStore((s) => s.toggleTheme);
@@ -69,12 +41,8 @@ export const TopBar = () => {
   return (
     <header className={styles.bar}>
       <div className={styles.brand}>
-        <span className={styles.brandMark}>
-          <Mark />
-        </span>
         <span className={styles.brandWord}>
           <span className={styles.brandName}>dvdrw</span>
-          <span className={styles.brandTag}>animated terminal SVGs</span>
         </span>
       </div>
 
