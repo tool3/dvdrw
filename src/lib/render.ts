@@ -32,6 +32,7 @@ import type {
   Theme,
 } from 'dvdrw';
 import type { RenderOptions } from '../stores/optionsStore';
+import { useCustomThemesStore, type CustomTheme } from '../stores/customThemesStore';
 import type { RenderResult } from './types';
 
 /**
@@ -71,9 +72,31 @@ const parseBackground = (
 const CHAR_WIDTH_RATIO = 0.6;
 const DEFAULT_TYPING_SPEED_MS = 50;
 
+/**
+ * Resolve a theme id to a Theme object. Falls through to the customThemes
+ * store for `custom-*` ids saved via the theme editor or auto-promoted
+ * from inline `Set Theme {json}` directives. Without this lookup the
+ * in-page mobile renderer ignored every custom theme and painted dark.
+ */
 const resolveTheme = (name: string): Theme => {
   const themeMap = builtinThemes as unknown as Record<string, Theme>;
-  return themeMap[name] ?? themeMap.dark;
+  if (themeMap[name]) return themeMap[name];
+  if (name.startsWith('custom-')) {
+    const found = useCustomThemesStore
+      .getState()
+      .themes.find((t) => t.id === name);
+    if (found) return customThemeToTheme(found);
+  }
+  return themeMap.dark;
+};
+
+const customThemeToTheme = (t: CustomTheme): Theme => {
+  // CustomTheme already mirrors the dvd Theme shape — we just strip the
+  // app-only id/name fields to hand a clean Theme to the emitters.
+  const { id: _id, name: _name, ...colors } = t;
+  void _id;
+  void _name;
+  return colors as unknown as Theme;
 };
 
 interface InterpreterContext {
@@ -130,6 +153,39 @@ export interface ShellExecutor {
 }
 
 /**
+ * Translate the bash-style backslash escapes the dvd CLI accepts inside
+ * quoted strings ("\\e", "\\x1b", "\\n", "\\t") into the actual control
+ * characters. Mirrors `parseEscapes` in `dvd/src/executor/types.ts`. The
+ * env-var expansion the desktop CLI also does isn't applicable in the
+ * browser, so we skip it.
+ */
+const parseEscapes = (value: string): string =>
+  value
+    .replace(/\\e/g, '\x1b')
+    .replace(/\\x1b/g, '\x1b')
+    .replace(/\\n/g, '\n')
+    .replace(/\\t/g, '\t');
+
+/** Visible (rendered-cell) length of a prompt, after stripping SGR escapes. */
+const visibleLength = (s: string): number =>
+  s.replace(/\x1b\[[0-9;]*m/g, '').length;
+
+/**
+ * Walk the script's `Set` directives and pluck the last `PromptPrefix`
+ * (last write wins, same as dvd-cli). Falls back to dvd's default purple
+ * `❯ ` prompt when the script doesn't set one.
+ */
+const resolvePromptPrefix = (commands: CDCommand[]): string => {
+  let value: string | null = null;
+  for (const cmd of commands) {
+    if (cmd.type === 'Set' && cmd.setting === 'PromptPrefix') {
+      value = cmd.value;
+    }
+  }
+  return parseEscapes(value ?? '\\x1b[95m❯ \\x1b[0m');
+};
+
+/**
  * Async sibling of `interpret` — same state machine, but a Type+Enter
  * sequence actually runs the typed command through the supplied
  * `ShellExecutor` and writes the captured stdout into the terminal grid.
@@ -143,13 +199,14 @@ export const interpretAsync = async (
   theme: Theme,
   executor: ShellExecutor,
   onProgress?: (done: number, total: number) => void,
+  initialCursorVisible = true,
 ): Promise<{ frames: FrameData[]; notices: string[] }> => {
   const ctx: InterpreterContext = {
     state: createGridState(termCols, termRows),
     frames: [],
     theme,
     time: 0,
-    cursorVisible: true,
+    cursorVisible: initialCursorVisible,
   };
   captureFrame(ctx);
 
@@ -165,10 +222,14 @@ export const interpretAsync = async (
     (c) => c.type === 'Key' && c.key === 'Enter',
   ).length;
 
-  // Crude prompt simulation so successive commands don't visually run
-  // together. We never know the user's real PS1, but a "$ " is a
-  // universal-enough convention for demo recordings.
-  const writePrompt = () => writeAndCapture(ctx, '$ ', 0);
+  // Prompt prefix matches dvd's executor: honour `Set PromptPrefix` from
+  // the script, falling through to the purple `❯ ` default. `PROMPT_VW`
+  // is the cell width of the rendered prompt (after stripping SGRs), used
+  // by Ctrl+A / Ctrl+E to position the cursor correctly when the prompt
+  // contains color escapes.
+  const PROMPT = resolvePromptPrefix(commands);
+  const PROMPT_VW = visibleLength(PROMPT);
+  const writePrompt = () => writeAndCapture(ctx, PROMPT, 0);
   writePrompt();
 
   for (const cmd of commands) {
@@ -212,6 +273,39 @@ export const interpretAsync = async (
         } else {
           const input = KEY_TO_INPUT[cmd.key];
           if (input) repeat(cmd.count, () => writeAndCapture(ctx, input, 80));
+        }
+        break;
+      }
+      case 'Shortcut': {
+        // Common readline shortcuts. Each one collapses to a single
+        // terminal-escape write so the change lands in one frame
+        // instead of animating cell-by-cell — Ctrl+U shouldn't look
+        // like the user mashed Backspace.
+        const k = cmd.key.toLowerCase();
+        if (cmd.ctrl && k === 'u') {
+          // \r moves cursor to column 0; \x1b[K clears from there to
+          // the end of the line; then we re-emit the prompt so the
+          // cursor lands right after it. Emitted as one string → one
+          // frame, no animation.
+          typed = '';
+          writeAndCapture(ctx, `\r\x1b[K${PROMPT}`, 0);
+        } else if (cmd.ctrl && k === 'c') {
+          typed = '';
+          writeAndCapture(ctx, `^C\r\n${PROMPT}`, 0);
+        } else if (cmd.ctrl && k === 'l') {
+          // Clear screen + home cursor + redraw prompt + the partial
+          // typed buffer if any (matches real shell behaviour).
+          writeAndCapture(ctx, `\x1b[2J\x1b[H${PROMPT}${typed}`, 0);
+        } else if (cmd.ctrl && k === 'a' && typed.length > 0) {
+          // Cursor to start of line, then move right past the prompt.
+          writeAndCapture(ctx, `\r\x1b[${PROMPT_VW}C`, 0);
+        } else if (cmd.ctrl && k === 'e' && typed.length > 0) {
+          // Cursor to end of line: CR, then right past prompt + typed.
+          writeAndCapture(
+            ctx,
+            `\r\x1b[${PROMPT_VW + typed.length}C`,
+            0,
+          );
         }
         break;
       }
@@ -330,7 +424,14 @@ const interpret = (
         // Clipboard ops have no preview-time effect.
         break;
       case 'Shortcut':
-        // Shortcuts on a non-shell preview don't translate; ignore quietly.
+        // Ctrl+L is the one shortcut the sync (no-shell) preview can
+        // honour visually — clears the screen via the standard CSI
+        // escape. The line-editing shortcuts (Ctrl+U/C/A/E) only make
+        // sense when there's a typed buffer + shell loop (see
+        // `interpretAsync`).
+        if (cmd.ctrl && cmd.key.toLowerCase() === 'l') {
+          writeAndCapture(ctx, '\x1b[2J\x1b[H', 80);
+        }
         break;
     }
   }
@@ -516,6 +617,7 @@ export const renderScriptAsync = async (
     theme,
     executor,
     onProgress,
+    options.cursorVisible,
   );
   const result = buildAnimation(frames, options, theme);
   return { ...result, notices };

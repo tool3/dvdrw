@@ -43,20 +43,26 @@ export type RunnerStage =
 
 /**
  * Boot-time dependencies for the desktop path. The container installs
- * these once per session via npm and they stay resident; subsequent runs
- * skip the install. `dvdrw-cli` is the actual interpreter that turns a
- * `.cd` file into an SVG; `chartscii-cli` is shipped because demo
- * scripts reach for charts often and we'd rather not make every user
- * add it manually.
+ * these once per session via npm and they stay resident.
+ *
+ * Notably absent: `dvdrw-cli`. We used to spawn it to render the SVG,
+ * but the dvdrw library is already in the app bundle and rendering
+ * in-page is orders of magnitude faster (no PTY emulation, no
+ * child-process latency, no animation playback in the container). The
+ * container is now used purely as a shell sandbox for the commands
+ * users type inside their scripts.
+ *
+ * `chartscii-cli` is still preloaded because the default sample script
+ * uses it and we want a working out-of-the-box experience on first run.
  *
  * Mobile takes a different path — see `isMobileViewport` below — and
- * installs nothing, using the container only as a shell sandbox.
+ * installs nothing at all.
  */
-const BOOT_PACKAGES = ['dvdrw-cli', 'chartscii-cli'] as const;
+const BOOT_PACKAGES = ['chartscii-cli'] as const;
 
 /**
  * Surfaced in the runner's placeholder card so users know which demo
- * tools are quick to add. The first two come pre-installed; the rest
+ * tools are quick to add. The first entry comes pre-installed; the rest
  * are opt-in via the "Add package" affordance.
  */
 export const PRELOADED_TOOLS: Array<{
@@ -64,7 +70,6 @@ export const PRELOADED_TOOLS: Array<{
   bin: string;
   describe: string;
 }> = [
-  { package: 'dvdrw-cli', bin: 'dvd', describe: 'the dvd CLI — runs your .cd files (installed at boot)' },
   { package: 'chartscii-cli', bin: 'chartscii', describe: 'beautiful ASCII charts (installed at boot)' },
   { package: 'boxen-cli', bin: 'boxen', describe: 'wraps text in box drawings (`boxen "hi"`)' },
   { package: 'figlet', bin: 'figlet', describe: 'big ASCII letters (`figlet hello`)' },
@@ -251,55 +256,6 @@ const ensureInstalled = async (
 };
 
 /* ------------------------------------------------------------------------- */
-/*                              Options → flags                               */
-/* ------------------------------------------------------------------------- */
-
-const optionsToFlags = (opts: RenderOptions): string[] => {
-  const flags: string[] = [];
-  const push = (flag: string, value: string | number | boolean | undefined) => {
-    if (value === undefined || value === '' || value === null) return;
-    if (typeof value === 'boolean') {
-      if (value) flags.push(flag);
-      else flags.push(`--no-${flag.replace(/^--/, '')}`);
-      return;
-    }
-    flags.push(flag, String(value));
-  };
-
-  // Custom themes (id like "custom-1234") aren't in dvd-cli's --theme
-  // choices list and would be rejected. The script's `Set Theme {json}`
-  // directive — written by the bidirectional menu↔script sync — handles
-  // those at runtime instead.
-  if (opts.theme && !opts.theme.startsWith('custom-')) {
-    push('--theme', opts.theme);
-  }
-  push('--template', opts.template);
-  push('--font-size', opts.fontSize);
-  push('--line-height', opts.lineHeight);
-  push('--padding', opts.padding);
-  push('--border-radius', opts.borderRadius);
-  if (opts.borderWidth > 0) push('--border-width', opts.borderWidth);
-  if (opts.borderColor) push('--border-color', opts.borderColor);
-  if (opts.title) push('--title', opts.title);
-  if (opts.watermark) push('--watermark', opts.watermark);
-  push('--cursor-style', opts.cursorStyle);
-  if (!opts.cursorBlink) flags.push('--no-cursor-blink');
-  if (opts.cursorColor) push('--cursor-color', opts.cursorColor);
-  if (opts.background) push('--background', opts.background);
-  if (opts.backgroundPadding > 0) push('--background-padding', opts.backgroundPadding);
-  if (opts.backgroundRadius > 0) push('--background-radius', opts.backgroundRadius);
-  if (opts.fps) push('--fps', opts.fps);
-  if (!opts.loop) flags.push('--no-loop');
-  push('--loop-style', opts.loopStyle);
-  push('--pause-at-end', opts.pauseAtEnd);
-  if (opts.letterSpacing) push('--letter-spacing', opts.letterSpacing);
-  if (opts.engine === 'smil') flags.push('--smil');
-  if (!opts.optimize) flags.push('--no-optimize');
-
-  return flags;
-};
-
-/* ------------------------------------------------------------------------- */
 /*                                 Run script                                */
 /* ------------------------------------------------------------------------- */
 
@@ -325,82 +281,38 @@ export const runScript = async (
   await ensureInstalled(booted, handlers.onLog, handlers.onStage);
   handlers.onStage('running', 'Running script');
 
-  // Mobile path: container is shell-only, no dvd CLI / shim installed.
-  // We walk the script in-page using dvdrw's library primitives, and
-  // for each typed line followed by Enter we send the line through
-  // `bash -lc` inside the container, capturing its stdout. The
-  // result is composited into the frame stream and rendered to SVG
-  // entirely client-side.
-  if (isMobileViewport() || isNoDepsDebug()) {
-    const executor: ShellExecutor = {
-      run: async (command) => {
-        handlers.onLog(`$ ${command}\n`);
-        // Prepend ./node_modules/.bin to PATH so locally-installed npm
-        // bins (added via the "Add package" UI) are reachable as bare
-        // command names — `chartscii 1 2 3` instead of `npx chartscii …`.
-        // This is harmless when nothing's installed yet.
-        const proc = await booted.instance.spawn('bash', [
-          '-c',
-          `export PATH=./node_modules/.bin:$PATH; ${command}`,
-        ]);
-        let buffer = '';
-        proc.output.pipeTo(
-          new WritableStream<string>({
-            write(chunk) {
-              buffer += chunk;
-              handlers.onLog(chunk);
-            },
-          }),
-        );
-        await proc.exit;
-        return buffer;
-      },
-    };
-    const rendered = await renderScriptAsync(input.source, input.options, executor);
-    handlers.onStage('ready', 'Done');
-    return { svg: rendered.svg, log: '', exitCode: 0 };
-  }
-
-  // Desktop path: shim + dvdrw library installed.
-  const inputPath = 'input.cd';
-  const outputPath = 'output.svg';
-  // dvd-cli has no global "hide cursor" flag for script renders. We fake
-  // it by prefixing the script with a Hide/Show block that prints the
-  // DECTCEM-off escape (`\e[?25l`); the terminal state stays "cursor
-  // hidden" for the rest of the capture. The wrapper itself isn't recorded
-  // because it lives between Hide and Show.
-  const sourceForRun = input.options.cursorVisible
-    ? input.source
-    : [
-        'Hide',
-        `Type "printf '\\033[?25l'"`,
-        'Enter',
-        'Sleep 50ms',
-        'Show',
-        '',
-        input.source,
-      ].join('\n');
-  await booted.instance.fs.writeFile(inputPath, sourceForRun);
-
-  const flags = optionsToFlags(input.options);
-  // `npm exec` runs the local `dvd` bin and inherits PATH so any extra
-  // CLIs the user has added (chartscii, figlet, …) are reachable from
-  // dvd's spawned subshells.
-  const args = ['exec', '--no', '--', 'dvd', inputPath, '-o', outputPath, ...flags];
-  handlers.onLog(`$ npm ${args.join(' ')}\n`);
-
-  const proc = await booted.instance.spawn('npm', args);
-  proc.output.pipeTo(writableLog(handlers.onLog));
-
-  const exitCode = await proc.exit;
-  if (exitCode !== 0) {
-    handlers.onStage('error', `Script failed (exit ${exitCode})`);
-    throw new Error(`dvd exited with code ${exitCode}`);
-  }
-
-  const svg = await booted.instance.fs.readFile(outputPath, 'utf-8');
+  // Single render path for all platforms: walk the script in-page using
+  // the dvdrw library, and use the container purely as a shell sandbox
+  // for the typed-line+Enter sequences. This avoids spawning the dvd
+  // CLI (slow PTY emulation + animation playback in a virtualized
+  // Linux) and instead does the synthesis directly in the browser,
+  // which is dramatically faster.
+  const executor: ShellExecutor = {
+    run: async (command) => {
+      // Prepend ./node_modules/.bin to PATH so locally-installed npm
+      // bins (chartscii at boot, plus anything added via "Add package")
+      // are reachable as bare command names — `chartscii 1 2 3` instead
+      // of `npx chartscii …`.
+      const proc = await booted.instance.spawn('bash', [
+        '-c',
+        `export PATH=./node_modules/.bin:$PATH; ${command}`,
+      ]);
+      let buffer = '';
+      proc.output.pipeTo(
+        new WritableStream<string>({
+          write(chunk) {
+            buffer += chunk;
+            handlers.onLog(chunk);
+          },
+        }),
+      );
+      await proc.exit;
+      return buffer;
+    },
+  };
+  const rendered = await renderScriptAsync(input.source, input.options, executor);
   handlers.onStage('ready', 'Done');
-  return { svg, log: '', exitCode };
+  return { svg: rendered.svg, log: '', exitCode: 0 };
 };
 
 /* ------------------------------------------------------------------------- */

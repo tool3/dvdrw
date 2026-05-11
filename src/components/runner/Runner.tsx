@@ -137,13 +137,34 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
     }
   }, [logTick]);
 
-  const appendLog = useCallback((chunk: string) => {
-    bufferRef.current.write(chunk);
-    setLogTick((t) => t + 1);
+  // The container streams many small chunks during npm install / runs.
+  // Triggering a React render on every chunk causes visible flicker on
+  // the log surface (and burns CPU). Coalesce into one render per
+  // animation frame instead — the buffer always has the latest bytes,
+  // the frame just paints them in one shot.
+  const tickPending = useRef(false);
+  const scheduleTick = useCallback(() => {
+    if (tickPending.current) return;
+    tickPending.current = true;
+    requestAnimationFrame(() => {
+      tickPending.current = false;
+      setLogTick((t) => t + 1);
+    });
   }, []);
+
+  const appendLog = useCallback(
+    (chunk: string) => {
+      bufferRef.current.write(chunk);
+      scheduleTick();
+    },
+    [scheduleTick],
+  );
 
   const resetLog = useCallback(() => {
     bufferRef.current.reset();
+    // Reset is a user action — paint synchronously so the cleared state
+    // shows instantly instead of waiting for the next frame.
+    tickPending.current = false;
     setLogTick((t) => t + 1);
   }, []);
 
