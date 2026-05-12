@@ -73,18 +73,26 @@ const CHAR_WIDTH_RATIO = 0.6;
 const DEFAULT_TYPING_SPEED_MS = 50;
 
 /**
- * Resolve a theme id to a Theme object. Falls through to the customThemes
- * store for `custom-*` ids saved via the theme editor or auto-promoted
- * from inline `Set Theme {json}` directives. Without this lookup the
- * in-page mobile renderer ignored every custom theme and painted dark.
+ * Resolve a theme id to a Theme object. Custom themes can be passed in
+ * explicitly (so this function is safe to call from a Web Worker, where
+ * the zustand store isn't reachable). On the main thread, the store
+ * fallback below kicks in when callers don't pass `customThemes`.
  */
-const resolveTheme = (name: string): Theme => {
+const resolveTheme = (
+  name: string,
+  customThemes: CustomTheme[] = [],
+): Theme => {
   const themeMap = builtinThemes as unknown as Record<string, Theme>;
   if (themeMap[name]) return themeMap[name];
   if (name.startsWith('custom-')) {
-    const found = useCustomThemesStore
-      .getState()
-      .themes.find((t) => t.id === name);
+    const found =
+      customThemes.find((t) => t.id === name) ??
+      // Main-thread fallback: read directly from the store when the
+      // caller didn't bother passing the list. Workers must always
+      // pass it because the store doesn't exist in their realm.
+      (typeof window === 'undefined'
+        ? undefined
+        : useCustomThemesStore.getState().themes.find((t) => t.id === name));
     if (found) return customThemeToTheme(found);
   }
   return themeMap.dark;
@@ -624,8 +632,9 @@ export const renderScriptAsync = async (
 export const renderInput = (
   input: RenderInput,
   options: RenderOptions,
+  customThemes: CustomTheme[] = [],
 ): RenderOutput => {
-  const theme = resolveTheme(options.theme);
+  const theme = resolveTheme(options.theme, customThemes);
 
   if (input.kind === 'script') {
     const script = parseCDScript(input.source);
