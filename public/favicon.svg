@@ -1,55 +1,71 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
   <defs>
-    <!-- App-canvas gradient: deep midnight diagonal to violet, the same
-         ambient mesh tones used by the page itself (cool indigo
-         upper-left, warm violet lower-right). -->
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#0A0D17"/>
-      <stop offset="45%" stop-color="#1A1532"/>
-      <stop offset="100%" stop-color="#3A2566"/>
-    </linearGradient>
-
-    <!-- Disc body: iris-violet → deeper violet, matches the brand
-         accent (#A698FF) at the highlight side. -->
-    <radialGradient id="disc" cx="38%" cy="34%" r="70%">
-      <stop offset="0%" stop-color="#C9BEFF"/>
+    <!-- Disc body: iris-violet caught mid-light, anchored on the
+         brand accent (#A698FF). Highlight biased to the upper-left so
+         the disc reads as glossy without being symmetrical. -->
+    <radialGradient id="disc" cx="38%" cy="34%" r="72%">
+      <stop offset="0%" stop-color="#D7CEFF"/>
       <stop offset="45%" stop-color="#A698FF"/>
-      <stop offset="100%" stop-color="#3D2D8A"/>
+      <stop offset="100%" stop-color="#2A1E66"/>
     </radialGradient>
 
-    <!-- Specular sheen — a soft white blob that catches the light off
-         the disc's upper-left quadrant. Gives the CD a recognizable
-         glossy quality without being noisy at 16px. -->
-    <radialGradient id="sheen" cx="32%" cy="28%" r="38%">
-      <stop offset="0%" stop-color="rgba(255,255,255,0.55)"/>
-      <stop offset="60%" stop-color="rgba(255,255,255,0.08)"/>
+    <!-- Specular sheen — soft white blob on the upper-left quadrant
+         that gives the disc its "this is plastic" gloss. -->
+    <radialGradient id="sheen" cx="30%" cy="26%" r="38%">
+      <stop offset="0%" stop-color="rgba(255,255,255,0.6)"/>
+      <stop offset="55%" stop-color="rgba(255,255,255,0.1)"/>
       <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
     </radialGradient>
 
-    <!-- Hub gradient: smaller darker disc around the spindle hole so
-         the centre has a distinct anatomy. -->
+    <!-- Hub: the inner darker disc around the spindle hole. Gradient
+         keeps it from looking like a flat circle pasted on. -->
     <radialGradient id="hub" cx="50%" cy="40%" r="60%">
       <stop offset="0%" stop-color="#1A1532"/>
       <stop offset="100%" stop-color="#06080F"/>
     </radialGradient>
+
+    <!-- Engraved label ring — sits *just outside the spindle hole*, the
+         innermost printable surface on a real CD. Path is a clockwise
+         circle at radius 5, so the top of the ring reads upright and
+         the bottom is inverted (matches real disc labels). -->
+    <path
+      id="labelRing"
+      d="M 27 32 A 5 5 0 1 1 37 32 A 5 5 0 1 1 27 32"
+      fill="none"
+    />
   </defs>
 
-  <!-- Rounded-square app icon background. -->
-  <rect x="0" y="0" width="64" height="64" rx="14" fill="url(#bg)"/>
+  <!-- Disc body. Almost fills the viewBox now that the squircle
+       background is gone. -->
+  <circle cx="32" cy="32" r="30" fill="url(#disc)"/>
 
-  <!-- Disc body. -->
-  <circle cx="32" cy="32" r="22" fill="url(#disc)"/>
+  <!-- Two faint track scribes — hint at data tracks at icon size
+       without becoming visual noise. -->
+  <circle cx="32" cy="32" r="28.5" fill="none" stroke="rgba(255,255,255,0.16)" stroke-width="0.5"/>
+  <circle cx="32" cy="32" r="18" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="0.5"/>
 
-  <!-- A pair of faint concentric ring scribes — read as data tracks
-       at icon sizes without becoming visual noise. -->
-  <circle cx="32" cy="32" r="20.5" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="0.6"/>
-  <circle cx="32" cy="32" r="14.5" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="0.6"/>
+  <!-- Glossy sheen overlay. -->
+  <circle cx="32" cy="32" r="30" fill="url(#sheen)"/>
 
-  <!-- Glossy sheen. -->
-  <circle cx="32" cy="32" r="22" fill="url(#sheen)"/>
+  <!-- Hub. -->
+  <circle cx="32" cy="32" r="9" fill="url(#hub)"/>
+  <circle cx="32" cy="32" r="9" fill="none" stroke="rgba(255,255,255,0.14)" stroke-width="0.3"/>
 
-  <!-- Hub + spindle hole. -->
-  <circle cx="32" cy="32" r="7.5" fill="url(#hub)"/>
-  <circle cx="32" cy="32" r="7.5" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="0.5"/>
-  <circle cx="32" cy="32" r="2.4" fill="#06080F"/>
+  <!-- Engraved ring text right above the spindle hole. Generic system
+       sans because web fonts aren't reachable from the favicon
+       document. Tiny font-size + tight tracking — readable at the
+       larger Apple-touch sizes, ornamental at favicon sizes. -->
+  <text
+    font-family="ui-sans-serif, system-ui, -apple-system, Helvetica, Arial, sans-serif"
+    font-size="1.4"
+    font-weight="600"
+    letter-spacing="0.18"
+    fill="rgba(255,255,255,0.7)"
+  >
+    <textPath href="#labelRing" startOffset="0">DVDRW · TOOL3 · DVDRW · TOOL3 ·</textPath>
+  </text>
+
+  <!-- Spindle hole, rendered last so it cleanly masks any inside-edge
+       overhang from the ring text. -->
+  <circle cx="32" cy="32" r="2.8" fill="#06080F"/>
 </svg>
