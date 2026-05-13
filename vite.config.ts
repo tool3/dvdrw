@@ -69,6 +69,13 @@ const stubNodeBuiltins = (): Plugin => {
 
 export default defineConfig({
   plugins: [react(), stubNodeBuiltins()],
+  // Web Workers go through a separate Rollup pass that doesn't inherit
+  // the main `plugins` array. Without listing `stubNodeBuiltins()` here
+  // the worker bundle fails on `import 'node:child_process'` from
+  // dvdrw's shell-recorder, even though we never call that code path.
+  worker: {
+    plugins: () => [stubNodeBuiltins()],
+  },
   css: {
     modules: {
       localsConvention: 'camelCase',
