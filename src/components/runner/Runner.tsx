@@ -16,6 +16,7 @@ import { Button } from '../primitives/Button';
 import { TextInput } from '../primitives/Form';
 import { Spinner } from '../primitives/Spinner';
 import { ZoomControls } from '../primitives/ZoomControls';
+import { MiniPlayer } from '../preview/MiniPlayer';
 import { TerminalBuffer, cellsToSpans } from '../../lib/terminal';
 import { styleToCss } from '../../lib/ansi';
 import styles from './Runner.module.scss';
@@ -94,6 +95,7 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
   const bufferRef = useRef<TerminalBuffer>(new TerminalBuffer());
   const [logTick, setLogTick] = useState(0);
   const [svg, setSvg] = useState<string | null>(null);
+  const [durationMs, setDurationMs] = useState<number>(0);
   const [running, setRunning] = useState(false);
   const [hasRunOnce, setHasRunOnce] = useState(false);
   const [autoQueued, setAutoQueued] = useState(false);
@@ -216,6 +218,7 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
         { onLog: appendLog, onStage: handleStage },
       );
       setSvg(result.svg);
+      setDurationMs(result.durationMs ?? 0);
       if (!hasRunOnceRef.current) setHasRunOnce(true);
     } catch {
       // stage already updated to 'error' inside runScript
@@ -272,11 +275,6 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
     }
   }, [autoRun]);
 
-  const dataUrl = useMemo(() => {
-    if (!svg) return null;
-    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-  }, [svg]);
-
   const lines = useMemo(() => {
     void logTick;
     return bufferRef.current.getLines().map((cells) => cellsToSpans(cells));
@@ -319,7 +317,7 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
   // SVG yet — gives the user something to watch during the multi-second
   // first boot + npm install.
   const stageSpinner = (() => {
-    if (dataUrl) return null;
+    if (svg) return null;
     if (running) {
       return { tone: 'running' as const, label: status };
     }
@@ -462,17 +460,11 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
       )}
 
       <div className={styles.body}>
-        <div className={styles.stage}>
-          {dataUrl ? (
-            <div className={styles.frame} style={{ zoom }}>
-              <img
-                className={styles.image}
-                src={dataUrl}
-                alt="container output"
-                draggable={false}
-              />
-            </div>
-          ) : stageSpinner ? (
+        {svg ? (
+          <MiniPlayer svg={svg} durationMs={durationMs} zoom={zoom} alt="container output" />
+        ) : (
+          <div className={styles.stage}>
+          {stageSpinner ? (
             <div
               className={[styles.bootSpinner, styles[`bootSpinner_${stageSpinner.tone}`]]
                 .filter(Boolean)
@@ -543,7 +535,8 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
               )}
             </div>
           )}
-        </div>
+          </div>
+        )}
 
         <section
           className={[

@@ -1,0 +1,249 @@
+@use '../../styles/mixins.scss' as *;
+
+/* The wrap fills its parent vertically; the stage takes whatever's
+   left after the controls bar, so the player sits flush at the
+   bottom of the preview pane regardless of pane height. */
+.wrap {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+
+/* The visible SVG area — same checker treatment as the previous
+   <img>-based stage so transparency / preview backgrounds read clearly. */
+.stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+  overflow: auto;
+  background-image:
+    linear-gradient(45deg, var(--preview-checker-a) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--preview-checker-a) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--preview-checker-a) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--preview-checker-a) 75%);
+  background-size: 20px 20px;
+  background-position: 0 0, 0 10px, 10px -10px, -10px 0;
+
+  /* The injected SVG sits as the stage's only child — center it and
+     cap it to the stage's box so wide casts don't push the controls
+     off-screen. */
+  & > svg {
+    display: block;
+    max-width: 100%;
+    max-height: 100%;
+    height: auto;
+    filter:
+      drop-shadow(8px 16px 32px rgba(2, 4, 12, 0.55))
+      drop-shadow(2px 4px 12px rgba(2, 4, 12, 0.35));
+    border-radius: var(--radius-3);
+    overflow: hidden;
+  }
+}
+
+/* Bottom dock. Glass-strip layout matching the rest of the chrome —
+   slim, non-distracting, sticks to the bottom edge of the preview
+   pane. */
+.controls {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  box-shadow: 0 -1px 0 0 rgba(255, 255, 255, 0.04) inset;
+}
+
+/* Primary play / pause — accent-soft pill so it reads as the
+   centerpiece. Square-ish ratio matches YouTube's small-player button. */
+.playBtn {
+  @include reset-button;
+  @include clickable-surface;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  // border-radius: 50%;
+  // background: var(--accent-soft);
+  color: var(--accent);
+  // box-shadow:
+  //   0 1px 0 0 rgba(255, 255, 255, 0.10) inset,
+  //   0 0 0 1px var(--accent-soft);
+
+  &:hover {
+    // background: var(--accent);
+    // color: var(--text-on-brand);
+    // box-shadow:
+    //   0 1px 0 0 rgba(255, 255, 255, 0.24) inset,
+    //   0 6px 14px -4px var(--accent-glow);
+    // transform: scale(1.1);
+  }
+
+  &:active {
+    transform: scale(0.96);
+  }
+}
+
+/* Secondary icon button (restart). Quieter ghost variant. */
+.iconBtn {
+  @include reset-button;
+  @include clickable-surface;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-1);
+  color: var(--text-secondary);
+
+  &:hover {
+    background: var(--glass-bg-hover);
+    color: var(--text-primary);
+  }
+}
+
+/* Scrubber. Uses the same translucent-track + range-input overlay
+   pattern as our slider primitive — the `<input type="range">` is
+   transparent on top of a visible progress-fill so we get keyboard
+   accessibility for free without paying for native styling quirks. */
+.scrubTrack {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 18px;
+  display: flex;
+  align-items: center;
+}
+
+.scrubTrack::before,
+.scrubTrack::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 4px;
+  margin-top: -2px;
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+/* Base (un-played) portion of the track. */
+.scrubTrack::before {
+  background: var(--glass-border-strong);
+}
+
+/* Filled (played) portion. Drawn over the base; width comes from the
+   inline `--progress` CSS variable updated by JS. */
+.scrubTrack::after {
+  right: auto;
+  width: var(--progress, 0%);
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent-glow);
+}
+
+.scrubInput {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+
+  &::-webkit-slider-runnable-track {
+    height: 100%;
+    background: transparent;
+    cursor: pointer;
+  }
+  &::-moz-range-track {
+    height: 100%;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  /* Invisible thumb, asciinema-style. The native <input type="range">
+     already seeks to whatever x-position you click on within its box,
+     so we keep the thumb element present (to preserve keyboard /
+     drag-still-works semantics) but paint nothing. The cursor stays as
+     `pointer` across the whole track — no grab affordance. */
+  &::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 1px;
+    height: 1px;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    cursor: pointer;
+  }
+
+  &::-moz-range-thumb {
+    width: 1px;
+    height: 1px;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    cursor: pointer;
+  }
+
+  &:focus-visible {
+    outline: none;
+  }
+}
+
+.timecode {
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.sep {
+  color: var(--text-muted);
+  margin: 0 2px;
+}
+
+/* Mobile: condense the dock. The scrubber stays full-width — that's
+   the key affordance — but the timecode shortens (single duration only)
+   and the restart button hides since the play/pause button can be tapped
+   after seeking to 0. */
+@media (max-width: 720px) {
+  .controls {
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .playBtn {
+    width: 36px;
+    height: 36px;
+  }
+
+  .timecode {
+    font-size: 11px;
+    /* Drop the duration; current time + the scrub thumb position is
+       enough context on a phone, and the row stays uncrowded. */
+    .sep,
+    & > :nth-child(n + 2) {
+      display: none;
+    }
+  }
+
+  .iconBtn {
+    display: none;
+  }
+}

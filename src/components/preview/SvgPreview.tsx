@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import type { RenderState } from '../../lib/types';
 import styles from './SvgPreview.module.scss';
 import { Button } from '../primitives/Button';
 import { Spinner } from '../primitives/Spinner';
 import { ZoomControls } from '../primitives/ZoomControls';
+import { MiniPlayer } from './MiniPlayer';
 
 interface SvgPreviewProps {
   state: RenderState;
@@ -51,11 +52,6 @@ const downloadBlob = (text: string, filename: string, mime: string) => {
 
 export const SvgPreview = ({ state, filename = 'output.svg', notices }: SvgPreviewProps) => {
   const [zoom, setZoom] = useState(1);
-  const dataUrl = useMemo(() => {
-    if (state.status !== 'ok') return null;
-    const encoded = encodeURIComponent(state.result.svg);
-    return `data:image/svg+xml;charset=utf-8,${encoded}`;
-  }, [state]);
 
   return (
     <div className={styles.wrap}>
@@ -121,29 +117,33 @@ export const SvgPreview = ({ state, filename = 'output.svg', notices }: SvgPrevi
         </div>
       </div>
 
-      <div className={styles.stage}>
-        {state.status === 'ok' && dataUrl && (
-          <div className={styles.frame} style={{ zoom }}>
-            <img className={styles.image} src={dataUrl} alt="rendered preview" draggable={false} />
-          </div>
-        )}
-        {state.status === 'rendering' && (
-          <div className={styles.stagePending} role="status" aria-live="polite">
-            <Spinner size={36} tone="accent" />
-            <span className={styles.stagePendingLabel}>Rendering…</span>
-            <span className={styles.stagePendingSub}>
-              Walking the cast frames and emitting the animated SVG.
-            </span>
-          </div>
-        )}
-        {state.status === 'idle' && <div className={styles.placeholder}>Your preview will appear here.</div>}
-        {state.status === 'error' && (
-          <div className={styles.error}>
-            <strong>{state.error.message}</strong>
-            {state.error.hint && <span className={styles.errorHint}>{state.error.hint}</span>}
-          </div>
-        )}
-      </div>
+      {state.status === 'ok' && (
+        <MiniPlayer
+          svg={state.result.svg}
+          durationMs={state.result.durationMs}
+          zoom={zoom}
+        />
+      )}
+      {state.status !== 'ok' && (
+        <div className={styles.stage}>
+          {state.status === 'rendering' && (
+            <div className={styles.stagePending} role="status" aria-live="polite">
+              <Spinner size={36} tone="accent" />
+              <span className={styles.stagePendingLabel}>Rendering…</span>
+              <span className={styles.stagePendingSub}>
+                Walking the cast frames and emitting the animated SVG.
+              </span>
+            </div>
+          )}
+          {state.status === 'idle' && <div className={styles.placeholder}>Your preview will appear here.</div>}
+          {state.status === 'error' && (
+            <div className={styles.error}>
+              <strong>{state.error.message}</strong>
+              {state.error.hint && <span className={styles.errorHint}>{state.error.hint}</span>}
+            </div>
+          )}
+        </div>
+      )}
 
       {notices && notices.length > 0 && (
         <div className={styles.notices}>

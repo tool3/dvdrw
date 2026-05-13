@@ -20,6 +20,10 @@ export interface RunResult {
   svg: string;
   log: string;
   exitCode: number;
+  /** Animation duration in ms — used by the MiniPlayer to size its
+   *  scrubber. Set by `renderScriptAsync`'s output; omitted when the
+   *  caller never goes through the in-page renderer. */
+  durationMs?: number;
 }
 
 export interface RunInput {
@@ -312,7 +316,12 @@ export const runScript = async (
   };
   const rendered = await renderScriptAsync(input.source, input.options, executor);
   handlers.onStage('ready', 'Done');
-  return { svg: rendered.svg, log: '', exitCode: 0 };
+  return {
+    svg: rendered.svg,
+    log: '',
+    exitCode: 0,
+    durationMs: rendered.durationMs,
+  };
 };
 
 /* ------------------------------------------------------------------------- */

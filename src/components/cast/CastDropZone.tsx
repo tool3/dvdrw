@@ -211,8 +211,10 @@ export const CastDropZone = ({ filename, onFile, onClear }: CastDropZoneProps) =
             <span className={styles.dropIcon}>
               <UploadIcon />
             </span>
-            <span className={styles.dropTitle}>Drop a .cast file</span>
-            <span className={styles.dropSub}>or click to browse</span>
+            <span className={styles.dropText}>
+              <span className={styles.dropTitle}>Drop a .cast file</span>
+              <span className={styles.dropSub}>or click to browse</span>
+            </span>
             <input
               ref={inputRef}
               type="file"
