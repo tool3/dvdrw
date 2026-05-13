@@ -1,8 +1,12 @@
 import { useAppStore } from '../../stores/appStore';
 import { Button } from '../primitives/Button';
+import { ColorPicker } from '../primitives/ColorPicker';
 import { SegmentedControl } from '../primitives/Form';
 import { OptionsMenu } from '../options/OptionsMenu';
+import { BRAND_PRESETS } from '../../lib/brandTheme';
 import styles from './TopBar.module.scss';
+
+const BRAND_PRESET_HEXES = BRAND_PRESETS.map((p) => p.hex);
 
 const ThemeIcon = ({ theme }: { theme: 'dark' | 'light' }) => {
   if (theme === 'dark') {
@@ -37,6 +41,8 @@ export const TopBar = () => {
   const toggleTheme = useAppStore((s) => s.toggleTheme);
   const view = useAppStore((s) => s.view);
   const setView = useAppStore((s) => s.setView);
+  const brandColor = useAppStore((s) => s.brandColor);
+  const setBrandColor = useAppStore((s) => s.setBrandColor);
 
   return (
     <header className={styles.bar}>
@@ -63,6 +69,13 @@ export const TopBar = () => {
       </div>
 
       <div className={styles.right}>
+        <ColorPicker
+          value={brandColor}
+          onChange={setBrandColor}
+          size={28}
+          presets={BRAND_PRESET_HEXES}
+          ariaLabel="Change app accent color"
+        />
         <Button
           variant="ghost"
           size="sm"
