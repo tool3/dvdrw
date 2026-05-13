@@ -171,6 +171,15 @@ export const ColorPicker = ({
       {open &&
         createPortal(
           <div
+            // Marks this element (and everything inside it) as a
+            // descendant popover that lives in a portal. Parent
+            // popovers — most importantly OptionsMenu — read this with
+            // `closest('[data-popover-portal]')` in their outside-click
+            // handler so clicking inside the color picker doesn't
+            // dismiss the settings panel that opened it. Without this,
+            // every drag on the saturation pad or edit on the hex
+            // input nukes the menu.
+            data-popover-portal="true"
             ref={popoverRef}
             className={styles.popover}
             style={popoverStyle}

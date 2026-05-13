@@ -103,6 +103,13 @@ export const MiniPlayer = ({
 
   // Per-frame poll of the SVG's time. rAF keeps it cheap and aligned to
   // paint, so the scrubber moves smoothly without burning CPU.
+  //
+  // End-of-timeline behaviour: even though the rendered SVG itself may
+  // have `repeatCount="indefinite"` (so it loops nicely when embedded
+  // elsewhere), the player UI behaves like a video element — it stops
+  // when playback reaches the end. We detect the crossing here and
+  // pin the time to `safeDuration`, pause the SVG, and flip state to
+  // paused so the play button reappears. Pressing play again rewinds.
   useEffect(() => {
     let raf = 0;
     const tick = () => {
@@ -110,26 +117,44 @@ export const MiniPlayer = ({
       if (draggingRef.current) return;
       const el = getSvgEl();
       if (!el || typeof el.getCurrentTime !== 'function') return;
-      const t = el.getCurrentTime() * 1000;
-      // For looping SVGs (the common case) we want progress *within*
-      // the current cycle, not the ever-growing total elapsed.
-      setCurrentMs(t % safeDuration);
+      const tMs = el.getCurrentTime() * 1000;
+      if (!paused && tMs >= safeDuration) {
+        // Pin to the very last moment so the SVG paints its final
+        // frame, then halt — without this, an indefinite-repeat SVG
+        // would keep advancing and the scrubber would snap back to 0
+        // every loop.
+        el.pauseAnimations();
+        el.setCurrentTime(safeDuration / 1000);
+        setCurrentMs(safeDuration);
+        setPaused(true);
+        return;
+      }
+      // Cap the displayed time so a fractional overshoot just before
+      // the end frame doesn't flicker the scrubber.
+      setCurrentMs(Math.min(tMs, safeDuration));
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [getSvgEl, safeDuration]);
+  }, [getSvgEl, safeDuration, paused]);
 
   const togglePlay = useCallback(() => {
     const el = getSvgEl();
     if (!el) return;
     if (paused) {
+      // If the playhead is parked at the end, a "play" press should
+      // start fresh from the beginning — same UX as YouTube's player
+      // when you click the round arrow that appears at the end.
+      if (currentMs >= safeDuration - 16) {
+        el.setCurrentTime(0);
+        setCurrentMs(0);
+      }
       el.unpauseAnimations();
       setPaused(false);
     } else {
       el.pauseAnimations();
       setPaused(true);
     }
-  }, [getSvgEl, paused]);
+  }, [getSvgEl, paused, currentMs, safeDuration]);
 
   const restart = useCallback(() => {
     const el = getSvgEl();

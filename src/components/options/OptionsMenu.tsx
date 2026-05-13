@@ -180,6 +180,17 @@ export const OptionsMenu = () => {
       const target = e.target as Node;
       if (popoverRef.current?.contains(target)) return;
       if (pillRef.current?.contains(target)) return;
+      // Child popovers rendered through React portals (e.g. the
+      // ColorPicker used by the custom-theme editor) are DOM-detached
+      // from our popover, so a `contains()` check misses them.
+      // They opt into "treat my clicks as inside" by marking the
+      // portal root with `data-popover-portal="true"`.
+      if (
+        target instanceof Element &&
+        target.closest('[data-popover-portal]')
+      ) {
+        return;
+      }
       close();
     };
     window.addEventListener('keydown', onKey);
