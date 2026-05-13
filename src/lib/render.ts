@@ -512,7 +512,168 @@ const computeDimensions = (
   return { width, height, cols, rows };
 };
 
-const buildAnimation = (
+/* ------------------------------------------------------------------ */
+/*                 Cast playback split into theme-less parts          */
+/* ------------------------------------------------------------------ */
+/* The lib's `generateFramesFromRecording` is the slow step on big      */
+/* casts. It does two things in one pass:                              */
+/*   1. Replay every recorded event through the virtual terminal,      */
+/*      mutating a grid state (theme-independent).                     */
+/*   2. At each capture point, *coalesce* the grid into colored row    */
+/*      spans (theme-dependent).                                       */
+/* We split those — `playCastSnapshots` does only (1) and returns the  */
+/* per-frame grid states; `framesFromSnapshots` does only (2) over the */
+/* cached snapshots. The worker then:                                  */
+/*   - Caches snapshots keyed by `source` (slow path runs only when    */
+/*     the cast file changes).                                         */
+/*   - Caches frames keyed by `(source, themeKey)` so theme tweaks     */
+/*     only re-coalesce — no event replay, no re-parse — and pure      */
+/*     visual changes reuse the cached frames directly.                */
+/* ------------------------------------------------------------------ */
+
+export interface GridSnapshot {
+  /** Immutable grid state at this capture point. `processInput` in
+   *  dvdrw is non-mutating (returns a new state), so we can stash
+   *  references without cloning. */
+  grid: GridState;
+  cursor: { row: number; col: number };
+  cursorVisible: boolean;
+  /** Milliseconds since recording start. */
+  timestamp: number;
+}
+
+/** Endpoint-of-sequence test borrowed from the lib's `coalesceEvents`. */
+const endsWithIncompleteSequence = (data: string): boolean => {
+  // Matches the heuristic used in dvdrw's recording-player: anything
+  // ending in ESC mid-CSI / OSC is considered incomplete.
+  const tail = data.slice(-8);
+  return /\x1b(\[[\d;?]*|\]|]\d+;?)?$/.test(tail);
+};
+
+/**
+ * Mirrors `coalesceEvents` from dvdrw's recording-player. Adjacent
+ * same-type events within 5ms (or 10ms for incomplete escape
+ * sequences) are merged so a split ANSI sequence is never processed
+ * in two halves.
+ */
+type CastEvent = [number, 'o' | 'i', string];
+
+const coalesceCastEvents = (events: CastEvent[]): CastEvent[] => {
+  if (events.length === 0) return [];
+  const out: CastEvent[] = [];
+  let [curTs, curType, curData] = events[0];
+  let lastTs = curTs;
+  for (let i = 1; i < events.length; i++) {
+    const [ts, type, data] = events[i];
+    const delta = ts - lastTs;
+    const withinThreshold = delta < 0.005;
+    const incompleteCarry =
+      endsWithIncompleteSequence(curData) && delta < 0.010;
+    if (type === curType && (withinThreshold || incompleteCarry)) {
+      curData += data;
+      lastTs = ts;
+    } else {
+      out.push([curTs, curType, curData]);
+      curTs = ts;
+      curType = type;
+      curData = data;
+      lastTs = ts;
+    }
+  }
+  out.push([curTs, curType, curData]);
+  return out;
+};
+
+/**
+ * Walk a `.cast` source through the virtual terminal and capture the
+ * grid state at each frame boundary. Theme-independent. Caching this
+ * lets a theme change skip the expensive event-replay loop entirely.
+ */
+export const playCastSnapshots = (source: string): GridSnapshot[] => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recording = parseCastFile(source) as any;
+  const header = recording.header ?? {};
+  const cols = header.width ?? 80;
+  const rows = header.height ?? 24;
+
+  let grid: GridState = createGridState(cols, rows);
+  const events = coalesceCastEvents(recording.events as CastEvent[]);
+
+  const MIN_FRAME_INTERVAL_MS = 16; // ~60fps cap, mirrors the lib
+  const MAX_FRAME_INTERVAL_MS = 2000;
+
+  const snapshots: GridSnapshot[] = [];
+  const capture = (timestampMs: number) => {
+    snapshots.push({
+      grid,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      cursor: { ...(grid as any).cursor },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      cursorVisible: (grid as any).cursorVisible,
+      timestamp: timestampMs,
+    });
+  };
+
+  // Initial frame at t=0.
+  capture(0);
+  let lastFrameMs = 0;
+
+  for (const [ts, type, data] of events) {
+    if (type === 'o') {
+      grid = processInput(grid, data);
+    }
+    const tsMs = ts * 1000;
+    if (type === 'o' && tsMs - lastFrameMs >= MIN_FRAME_INTERVAL_MS) {
+      const capped =
+        tsMs - lastFrameMs > MAX_FRAME_INTERVAL_MS
+          ? lastFrameMs + MAX_FRAME_INTERVAL_MS
+          : tsMs;
+      capture(capped);
+      lastFrameMs = capped;
+    }
+  }
+
+  // Final frame at the last event's timestamp (lib mirrors this).
+  if (events.length > 0) {
+    const lastMs = events[events.length - 1][0] * 1000;
+    if (lastMs > lastFrameMs) capture(lastMs);
+  }
+
+  return snapshots;
+};
+
+/**
+ * Coalesce each cached grid snapshot into themed frame rows. Cheap —
+ * O(snapshots × cells), no event replay. Re-runs on theme changes
+ * only; pure visual options reuse the resulting frames as-is.
+ */
+export const framesFromSnapshots = (
+  snapshots: GridSnapshot[],
+  theme: Theme,
+): FrameData[] =>
+  snapshots.map((s) => ({
+    rows: coalesce(s.grid, theme),
+    cursor: s.cursor,
+    cursorVisible: s.cursorVisible,
+    timestamp: s.timestamp,
+  }));
+
+/**
+ * Convenience wrapper for callers that don't care about caching —
+ * does the same work as the lib's `generateFramesFromRecording` but
+ * routed through our split helpers so the behaviour stays in sync.
+ */
+export const prepareCastFrames = (
+  source: string,
+  theme: Theme,
+): FrameData[] => framesFromSnapshots(playCastSnapshots(source), theme);
+
+// Re-export the lib's bulk-render shortcut so the worker keeps a
+// reference even though we no longer call it from the cast path —
+// retained for any future callsites that want a no-cache path.
+export { generateFramesFromRecording };
+
+export const buildAnimation = (
   frames: FrameData[],
   options: RenderOptions,
   theme: Theme,
