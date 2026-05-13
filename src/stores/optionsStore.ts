@@ -84,7 +84,7 @@ export const DEFAULT_OPTIONS: RenderOptions = {
   borderColor: undefined,
 
   cursorStyle: 'block',
-  cursorBlink: true,
+  cursorBlink: false,
   cursorColor: undefined,
   cursorVisible: true,
 
