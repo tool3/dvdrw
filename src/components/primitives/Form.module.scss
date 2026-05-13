@@ -378,7 +378,18 @@
 .segment_sm {
   height: 26px;
   font-size: var(--text-12);
-  padding: 0 var(--space-4);
+  /* Tight horizontal padding so a 4-segment loop-style control fits
+     inside the 320px popover. 2-segment controls (Template, Engine)
+     still look balanced at this size. */
+  padding: 0 var(--space-3);
+  min-width: 0;
+}
+
+/* Make the parent control span the popover so its `flex: 1` children
+   distribute evenly across the available width. */
+.segmented_sm {
+  display: flex;
+  width: 100%;
 }
 
 .segment_md {

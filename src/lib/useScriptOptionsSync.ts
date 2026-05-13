@@ -32,6 +32,8 @@ export type SyncableKey =
   | 'lineHeight'
   | 'letterSpacing'
   | 'padding'
+  | 'width'
+  | 'height'
   | 'borderRadius'
   | 'borderWidth'
   | 'borderColor'
@@ -41,7 +43,12 @@ export type SyncableKey =
   | 'background'
   | 'backgroundPadding'
   | 'backgroundRadius'
-  | 'loopStyle';
+  | 'loopStyle'
+  | 'loopPause'
+  | 'fadeDuration'
+  | 'rewindSpeed'
+  | 'playbackSpeed'
+  | 'customGlyphs';
 
 const SYNCABLE_KEYS: readonly SyncableKey[] = [
   'theme',
@@ -52,6 +59,8 @@ const SYNCABLE_KEYS: readonly SyncableKey[] = [
   'lineHeight',
   'letterSpacing',
   'padding',
+  'width',
+  'height',
   'borderRadius',
   'borderWidth',
   'borderColor',
@@ -62,6 +71,11 @@ const SYNCABLE_KEYS: readonly SyncableKey[] = [
   'backgroundPadding',
   'backgroundRadius',
   'loopStyle',
+  'loopPause',
+  'fadeDuration',
+  'rewindSpeed',
+  'playbackSpeed',
+  'customGlyphs',
 ];
 
 /**

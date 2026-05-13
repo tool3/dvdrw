@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { useAppStore, type View } from './appStore';
 
 export type TemplateKind = 'macos' | 'windows' | 'minimal';
 export type CursorStyle = 'block' | 'bar' | 'underline';
@@ -17,6 +18,12 @@ export interface RenderOptions {
   lineHeight: number;
   letterSpacing: number;
   padding: number;
+
+  // Terminal dimensions — undefined means "auto-fit content"; setting
+  // either field pins that dimension to an explicit px value. Mirrors
+  // dvd-cli's `Set Width` / `Set Height` directives.
+  width?: number;
+  height?: number;
 
   // Frame chrome
   borderRadius: number;
@@ -41,10 +48,21 @@ export interface RenderOptions {
   loop: boolean;
   loopStyle: LoopStyle;
   pauseAtEnd: number;
+  /** Pause (ms) before the loop restarts. Only used when `loop` is true. */
+  loopPause: number;
+  /** Cross-fade duration (ms). Only meaningful when `loopStyle === 'fade'`. */
+  fadeDuration: number;
+  /** Speed multiplier for the rewind phase of `loopStyle === 'rewind'`. */
+  rewindSpeed: number;
+  /** Global timeline multiplier — 0.5 = half speed, 2 = double speed. */
+  playbackSpeed: number;
 
   // Output
   engine: RenderEngine;
   optimize: boolean;
+  /** Render block-drawing glyphs (▀▄█) as geometric SVG shapes instead
+   *  of relying on the font's coverage. Cleaner across font stacks. */
+  customGlyphs: boolean;
 }
 
 export const DEFAULT_OPTIONS: RenderOptions = {
@@ -57,6 +75,9 @@ export const DEFAULT_OPTIONS: RenderOptions = {
   lineHeight: 1.4,
   letterSpacing: 0,
   padding: 16,
+
+  width: undefined,
+  height: undefined,
 
   borderRadius: 12,
   borderWidth: 0,
@@ -75,12 +96,32 @@ export const DEFAULT_OPTIONS: RenderOptions = {
   loop: true,
   loopStyle: 'loop',
   pauseAtEnd: 1000,
+  loopPause: 0,
+  fadeDuration: 1500,
+  rewindSpeed: 5,
+  playbackSpeed: 1,
 
   engine: 'filmstrip',
   optimize: true,
+  customGlyphs: true,
 };
 
+/**
+ * Each view (script editor / cast import) owns an independent set of
+ * render options. The active view's options are mirrored to the top-level
+ * `options` field so existing consumers can read `s.options` without
+ * knowing which view they're in; the `set`/`reset`/`applyPartial`
+ * mutators write to whichever view is active at the moment.
+ *
+ * Switching views via `appStore.view` swaps which slot `options` reflects,
+ * keyed off the subscription at the bottom of this file.
+ */
 interface OptionsState {
+  byView: Record<View, RenderOptions>;
+  /** Mirror of `byView[activeView]`. Updated by:
+   *  - mutators (`set`, `reset`, `applyPartial`) when the active view's
+   *    slot changes,
+   *  - the appStore subscription below when the view itself changes. */
   options: RenderOptions;
   set: <K extends keyof RenderOptions>(key: K, value: RenderOptions[K]) => void;
   reset: () => void;
@@ -88,10 +129,47 @@ interface OptionsState {
 }
 
 export const useOptionsStore = create<OptionsState>((set) => ({
+  byView: {
+    script: DEFAULT_OPTIONS,
+    cast: DEFAULT_OPTIONS,
+  },
   options: DEFAULT_OPTIONS,
-  set: (key, value) =>
-    set((state) => ({ options: { ...state.options, [key]: value } })),
-  reset: () => set({ options: DEFAULT_OPTIONS }),
-  applyPartial: (patch) =>
-    set((state) => ({ options: { ...state.options, ...patch } })),
+  set: (key, value) => {
+    const view = useAppStore.getState().view;
+    set((state) => {
+      const next = { ...state.byView[view], [key]: value };
+      return {
+        byView: { ...state.byView, [view]: next },
+        options: next,
+      };
+    });
+  },
+  reset: () => {
+    const view = useAppStore.getState().view;
+    set((state) => ({
+      byView: { ...state.byView, [view]: DEFAULT_OPTIONS },
+      options: DEFAULT_OPTIONS,
+    }));
+  },
+  applyPartial: (patch) => {
+    const view = useAppStore.getState().view;
+    set((state) => {
+      const next = { ...state.byView[view], ...patch };
+      return {
+        byView: { ...state.byView, [view]: next },
+        options: next,
+      };
+    });
+  },
 }));
+
+// Whenever the active view changes, point `options` at the corresponding
+// slot. Subscribers reading `s.options` re-render with the new view's
+// values without any extra wiring. Tracking prevView manually to stay
+// compatible across Zustand subscribe overloads.
+let prevView: View | null = useAppStore.getState().view;
+useAppStore.subscribe((state) => {
+  if (state.view === prevView) return;
+  prevView = state.view;
+  useOptionsStore.setState((s) => ({ options: s.byView[state.view] }));
+});

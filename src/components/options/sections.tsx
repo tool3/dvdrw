@@ -6,7 +6,6 @@ import {
   Field,
   NumberInput,
   SegmentedControl,
-  Select,
   Switch,
   TextInput,
 } from '../primitives/Form';
@@ -110,6 +109,24 @@ const FrameSection = () => {
   const set = useOptionsStore((s) => s.set);
   return (
     <>
+      <Field label="Width" hint="0 = auto-fit content">
+        <NumberInput
+          value={options.width ?? 0}
+          onChange={(v) => set('width', v > 0 ? v : undefined)}
+          min={0}
+          max={4000}
+          suffix="px"
+        />
+      </Field>
+      <Field label="Height" hint="0 = auto-fit content">
+        <NumberInput
+          value={options.height ?? 0}
+          onChange={(v) => set('height', v > 0 ? v : undefined)}
+          min={0}
+          max={4000}
+          suffix="px"
+        />
+      </Field>
       <Field label="Padding">
         <NumberInput
           value={options.padding}
@@ -232,6 +249,16 @@ const AnimationSection = () => {
   const set = useOptionsStore((s) => s.set);
   return (
     <>
+      <Field label="Playback speed" hint="1× is the script / cast's natural pace.">
+        <NumberInput
+          value={options.playbackSpeed}
+          onChange={(v) => set('playbackSpeed', v)}
+          min={0.25}
+          max={4}
+          step={0.25}
+          suffix="×"
+        />
+      </Field>
       <Field label="FPS">
         <NumberInput
           value={options.fps}
@@ -248,9 +275,9 @@ const AnimationSection = () => {
         />
       </Field>
       <Field label="Loop style">
-        <Select
+        <SegmentedControl
           value={options.loopStyle}
-          onChange={(e) => set('loopStyle', e.target.value as typeof options.loopStyle)}
+          onChange={(v) => set('loopStyle', v)}
           options={[
             { label: 'Loop', value: 'loop' },
             { label: 'Reverse', value: 'reverse' },
@@ -269,6 +296,40 @@ const AnimationSection = () => {
           suffix="ms"
         />
       </Field>
+      <Field label="Loop pause" hint="Wait between loop iterations.">
+        <NumberInput
+          value={options.loopPause}
+          onChange={(v) => set('loopPause', v)}
+          min={0}
+          max={5000}
+          step={50}
+          suffix="ms"
+        />
+      </Field>
+      {options.loopStyle === 'fade' && (
+        <Field label="Fade duration">
+          <NumberInput
+            value={options.fadeDuration}
+            onChange={(v) => set('fadeDuration', v)}
+            min={100}
+            max={5000}
+            step={100}
+            suffix="ms"
+          />
+        </Field>
+      )}
+      {options.loopStyle === 'rewind' && (
+        <Field label="Rewind speed">
+          <NumberInput
+            value={options.rewindSpeed}
+            onChange={(v) => set('rewindSpeed', v)}
+            min={1}
+            max={20}
+            step={0.5}
+            suffix="×"
+          />
+        </Field>
+      )}
     </>
   );
 };
@@ -296,6 +357,17 @@ const OutputSection = () => {
           checked={options.optimize}
           onChange={(v) => set('optimize', v)}
           ariaLabel="Optimize SVG"
+        />
+      </Field>
+      <Field
+        label="Custom glyphs"
+        hint="Render block-drawing chars (▀▄█) as SVG shapes — crisper across fonts."
+        layout="inline"
+      >
+        <Switch
+          checked={options.customGlyphs}
+          onChange={(v) => set('customGlyphs', v)}
+          ariaLabel="Custom block glyphs"
         />
       </Field>
     </>

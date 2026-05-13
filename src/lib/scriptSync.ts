@@ -25,6 +25,8 @@ const SETTING_TO_OPTION = {
   LineHeight: 'lineHeight',
   LetterSpacing: 'letterSpacing',
   Padding: 'padding',
+  Width: 'width',
+  Height: 'height',
   BorderRadius: 'borderRadius',
   BorderWidth: 'borderWidth',
   BorderColor: 'borderColor',
@@ -35,6 +37,11 @@ const SETTING_TO_OPTION = {
   BackgroundPadding: 'backgroundPadding',
   BackgroundRadius: 'backgroundRadius',
   LoopStyle: 'loopStyle',
+  LoopPause: 'loopPause',
+  FadeDuration: 'fadeDuration',
+  RewindSpeed: 'rewindSpeed',
+  PlaybackSpeed: 'playbackSpeed',
+  CustomGlyphs: 'customGlyphs',
 } as const;
 
 type SettingName = keyof typeof SETTING_TO_OPTION;
@@ -50,13 +57,19 @@ const NUMERIC_KEYS = new Set<OptionKey>([
   'lineHeight',
   'letterSpacing',
   'padding',
+  'width',
+  'height',
   'borderRadius',
   'borderWidth',
   'backgroundPadding',
   'backgroundRadius',
+  'loopPause',
+  'fadeDuration',
+  'rewindSpeed',
+  'playbackSpeed',
 ]);
 
-const BOOLEAN_KEYS = new Set<OptionKey>(['cursorBlink']);
+const BOOLEAN_KEYS = new Set<OptionKey>(['cursorBlink', 'customGlyphs']);
 
 /** Keys whose value can hold an inline `{...}` JSON theme blob — Theme only. */
 const isThemeKey = (k: OptionKey): k is 'theme' => k === 'theme';

@@ -149,3 +149,87 @@
   background: rgba(255, 122, 140, 0.06);
   border-radius: var(--radius-2);
 }
+
+/* "or paste a URL" divider — a centered label between two hairline
+   rules. Visually links the dropzone above and the URL form below. */
+.divider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--text-11);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+
+  &::before,
+  &::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--glass-border);
+  }
+}
+
+/* Inline URL ingest form: link icon + text input + Fetch button on a
+   single row, matching the glass-input look used throughout the menu. */
+.urlForm {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  position: relative;
+}
+
+.urlIcon {
+  position: absolute;
+  left: var(--space-3);
+  color: var(--text-muted);
+  pointer-events: none;
+  display: inline-flex;
+}
+
+.urlInput {
+  flex: 1;
+  height: 34px;
+  padding: 0 var(--space-3) 0 32px; /* leave room for the leading icon */
+  background: var(--bg-input);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-2);
+  color: var(--text-primary);
+  font-size: var(--text-13);
+  font-family: var(--font-mono);
+  font-feature-settings: 'ss01';
+  min-width: 0;
+  box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.04) inset;
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
+
+  /* iOS focus-zoom mitigation — see Form.module.scss for the same trick. */
+  @media (max-width: 720px) {
+    font-size: 16px;
+    height: 38px;
+  }
+
+  &::placeholder {
+    color: var(--text-muted);
+  }
+
+  &:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow:
+      0 1px 0 0 rgba(255, 255, 255, 0.04) inset,
+      0 0 0 4px var(--accent-soft);
+  }
+
+  &:hover:not(:focus) {
+    border-color: var(--border-strong);
+    background: var(--glass-bg-hover);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}

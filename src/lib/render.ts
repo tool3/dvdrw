@@ -450,7 +450,27 @@ const buildAnimationOptions = (opts: RenderOptions): AnimationOptions => ({
   loop: opts.loop,
   loopStyle: opts.loopStyle,
   pauseAtEnd: opts.pauseAtEnd,
+  loopPause: opts.loopPause,
+  fadeDuration: opts.fadeDuration,
+  rewindSpeed: opts.rewindSpeed,
 });
+
+/**
+ * Apply `playbackSpeed` by rescaling every frame's timestamp. Speed 2.0
+ * halves the timestamps (frames fire twice as fast); speed 0.5 doubles
+ * them. A speed of exactly 1 returns the original array so we don't
+ * allocate a new copy on the common case.
+ */
+const applyPlaybackSpeed = (
+  frames: FrameData[],
+  speed: number,
+): FrameData[] => {
+  if (!Number.isFinite(speed) || speed === 1 || speed <= 0) return frames;
+  return frames.map((f) => ({
+    ...f,
+    timestamp: Math.round(f.timestamp / speed),
+  }));
+};
 
 const computeDimensions = (
   frames: FrameData[],
@@ -478,8 +498,16 @@ const computeDimensions = (
   const lineHeightPx = options.fontSize * options.lineHeight;
   const headerHeight = options.template === 'minimal' ? 0 : 40;
 
-  const width = Math.ceil(cols * charWidth + options.padding * 2);
-  const height = Math.ceil(rows * lineHeightPx + headerHeight + options.padding * 2);
+  // Explicit `Set Width` / `Set Height` from the script (or from the UI's
+  // Frame section) overrides the auto-fit calculation. This is per-view —
+  // the cast preview can have its own pinned dimensions independent of
+  // whatever the script editor has set.
+  const autoWidth = Math.ceil(cols * charWidth + options.padding * 2);
+  const autoHeight = Math.ceil(
+    rows * lineHeightPx + headerHeight + options.padding * 2,
+  );
+  const width = options.width ?? autoWidth;
+  const height = options.height ?? autoHeight;
 
   return { width, height, cols, rows };
 };
@@ -493,7 +521,11 @@ const buildAnimation = (
     throw new Error('No frames to render. Add some commands or recording events.');
   }
 
-  const { width, height } = computeDimensions(frames, options);
+  // Apply playback speed once upstream so downstream timing — frame
+  // emission, pause-at-end, loop durations — all respect the speed.
+  const scaled = applyPlaybackSpeed(frames, options.playbackSpeed ?? 1);
+
+  const { width, height } = computeDimensions(scaled, options);
   const charWidth = options.fontSize * CHAR_WIDTH_RATIO;
   const lineHeightPx = options.fontSize * options.lineHeight;
   const headerHeight = options.template === 'minimal' ? 0 : 40;
@@ -508,7 +540,7 @@ const buildAnimation = (
   const background = parseBackground(options.background);
 
   if (options.engine === 'smil') {
-    const result = emitAnimated(frames, {
+    const result = emitAnimated(scaled, {
       theme,
       template: options.template,
       width,
@@ -538,7 +570,7 @@ const buildAnimation = (
   } else {
     svg = createFilmstripSVG(
       {
-        frameData: frames,
+        frameData: scaled,
         theme,
         width,
         height,
@@ -560,7 +592,7 @@ const buildAnimation = (
         background,
         backgroundPadding: options.backgroundPadding,
         backgroundRadius: options.backgroundRadius,
-        customGlyphs: true,
+        customGlyphs: options.customGlyphs ?? true,
       },
       buildAnimationOptions(options),
     );
@@ -570,13 +602,13 @@ const buildAnimation = (
     svg = optimizeSvg(svg);
   }
 
-  const lastTs = frames[frames.length - 1].timestamp;
+  const lastTs = scaled[scaled.length - 1].timestamp;
 
   return {
     svg,
     width,
     height,
-    frameCount: frames.length,
+    frameCount: scaled.length,
     durationMs: lastTs,
   };
 };
