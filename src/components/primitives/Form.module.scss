@@ -349,8 +349,13 @@
     0 1px 0 0 var(--glass-highlight) inset,
     0 -1px 0 0 var(--glass-shadow-inner) inset,
     var(--shadow-1);
-  backdrop-filter: blur(16px) saturate(180%);
-  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  /* `transform: translateZ(0)` pins this to its own compositing layer
+     so the blur is rasterised once. Without it, Chrome can re-blur the
+     element on every neighbouring repaint and leak a 1px seam along
+     the boundary with the adjacent pill. */
+  transform: translateZ(0);
 }
 
 .segment {

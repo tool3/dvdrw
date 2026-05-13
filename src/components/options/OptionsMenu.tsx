@@ -127,7 +127,21 @@ export const OptionsMenu = () => {
     const btn = buttonsRef.current[id];
     if (!btn) return null;
     const rect = btn.getBoundingClientRect();
-    return { left: rect.left + rect.width / 2, top: rect.bottom + 10 };
+    // Clamp the popover's centre so it never extends past the viewport
+    // edges. With `transform: translateX(-50%)`, the popover's painted
+    // rect runs from `left - width/2` to `left + width/2`; pin those
+    // ends to safe margins so a tab far to the right (Animation /
+    // Output / Presets) doesn't push the popover into a region that
+    // can trigger horizontal-scrollbar flicker or paint-outside-of-
+    // window oddities.
+    const popoverWidth = 320; // matches `.popover { width: 320px }`
+    const margin = 16;
+    const center = rect.left + rect.width / 2;
+    const half = popoverWidth / 2;
+    const minLeft = margin + half;
+    const maxLeft = window.innerWidth - margin - half;
+    const clamped = Math.max(minLeft, Math.min(maxLeft, center));
+    return { left: clamped, top: rect.bottom + 10 };
   }, []);
 
   const open = useCallback(
@@ -276,7 +290,7 @@ export const OptionsMenu = () => {
 
           <span className={styles.divider} aria-hidden />
 
-          {renderTab(presetsSection, <PresetsIcon />)}
+          {renderTab(presetsSection)}
 
           <Button
             size="sm"

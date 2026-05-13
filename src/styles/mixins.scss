@@ -18,22 +18,34 @@
 
 /* Frosted card. Use for editor / preview / runner / dropzone — anything that
    should read as a discrete physical surface floating above the canvas.
-   Requires a backdrop the blur can refract; works on top of the body's
-   ambient mesh. */
+   The "frosted" look is now from a translucent background + the body's
+   ambient mesh showing through, not from `backdrop-filter`. Backdrop
+   filter on two adjacent cards painted a visible vertical seam in the
+   gap between them no matter how we promoted layers; removing the
+   filter is the only clean fix that doesn't sacrifice the rest of the
+   surface treatment.
+
+   The inset top-edge highlight + bottom-edge inner shadow from
+   `--shadow-glass` still give it the "lit from above" glass feel. */
 @mixin glass-card {
   position: relative;
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-4);
   box-shadow: var(--shadow-glass);
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
 }
 
 /* Pill — the floating capsule used for the options menu and segmented
    controls. Same idiom as glass-card but tighter: smaller radius, shorter
    shadow, lighter blur so it doesn't visually compete with the cards
-   beneath it. */
+   beneath it.
+
+   `translateZ(0)` pins the element to its own compositing layer so the
+   backdrop blur is rasterised once. Without it, Chrome can re-blur on
+   every descendant repaint (e.g. tab :hover) and leave a 1px seam
+   wherever two backdrop-filtered siblings meet — which manifested as
+   a tall vertical artifact between the Script/Cast switcher and the
+   options pill when hovering the right-side tabs. */
 @mixin glass-pill {
   background: var(--glass-bg-strong);
   border: 1px solid var(--glass-border);
@@ -42,8 +54,9 @@
     0 1px 0 0 var(--glass-highlight) inset,
     0 -1px 0 0 var(--glass-shadow-inner) inset,
     var(--shadow-2);
-  backdrop-filter: blur(16px) saturate(180%);
-  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  transform: translateZ(0);
 }
 
 /* Popover — same family but anchored & elevated. Used by PillMenu's
@@ -53,8 +66,8 @@
   border: 1px solid var(--glass-border-strong);
   border-radius: var(--radius-3);
   box-shadow: var(--shadow-glass), var(--shadow-3);
-  backdrop-filter: blur(28px) saturate(180%);
-  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
 }
 
 /* Legacy panel mixin — kept for components we haven't migrated yet. Will

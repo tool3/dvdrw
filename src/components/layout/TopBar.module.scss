@@ -14,6 +14,14 @@
   padding: var(--space-4) var(--space-5);
   position: relative;
   z-index: 4;
+  /* Force a clean stacking context for the topbar so the
+     `backdrop-filter` layers inside (`.segmented_md` and the options
+     `.pill`) don't form their composited edges relative to whatever
+     happens to be behind the topbar. Without this, Chrome can paint a
+     1px seam between the two backdrop-filtered siblings whenever a
+     descendant triggers a repaint — exactly the "vertical line from
+     the right of Cast all the way down the page" symptom. */
+  isolation: isolate;
 }
 
 .brand {

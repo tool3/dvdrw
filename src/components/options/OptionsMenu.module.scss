@@ -137,8 +137,8 @@
   background: var(--glass-bg-strong);
   border-left: 1px solid var(--glass-border-strong);
   border-top: 1px solid var(--glass-border-strong);
-  backdrop-filter: blur(28px) saturate(180%);
-  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
 }
 
 /* Mobile: the popover becomes a swipeable bottom panel — full width,
