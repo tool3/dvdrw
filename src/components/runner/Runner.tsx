@@ -176,12 +176,21 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
   }, []);
 
   // Pre-warm container on first render so the first Run skips boot/install latency.
+  //
+  // Mobile is the exception: booting WebContainer on Runner mount means
+  // competing with the rest of the page (React + CodeMirror + SVG preview +
+  // Google Fonts) for the iOS Safari heap budget, and we OOM before the
+  // user has even decided whether they want to run anything. The boot
+  // itself works on mobile when nothing else is fighting for memory, so
+  // we just defer it to the actual Run click — by then the user has
+  // committed to the flow and the page is more settled.
   useEffect(() => {
     if (!supported) {
       setStage('unsupported');
       setMessage(DEFAULT_MESSAGES.unsupported);
       return;
     }
+    if (mobile) return;
     let cancelled = false;
     prewarm(
       (chunk) => {
@@ -199,7 +208,7 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
     return () => {
       cancelled = true;
     };
-  }, [supported, appendLog, handleStage]);
+  }, [supported, mobile, appendLog, handleStage]);
 
   const performRun = useCallback(async () => {
     if (!supported) return;
