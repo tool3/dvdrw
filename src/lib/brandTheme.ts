@@ -130,7 +130,6 @@ const buildFaviconDataUrl = (hex: string): string => {
     </radialGradient>
     <path id="labelRing" d="M 27 32 A 5 5 0 1 1 37 32 A 5 5 0 1 1 27 32" fill="none"/>
   </defs>
-  <rect x="0" y="0" width="64" height="64" rx="14" fill="url(#bg)"/>
   <circle cx="32" cy="32" r="22" fill="url(#disc)"/>
   <circle cx="32" cy="32" r="20.5" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="0.6"/>
   <circle cx="32" cy="32" r="14.5" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="0.6"/>
