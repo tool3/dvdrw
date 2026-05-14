@@ -424,7 +424,7 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
           <TextInput
             value={depDraft}
             onChange={setDepDraft}
-            placeholder="npm package (e.g. gradient-string)"
+            placeholder="npm package (e.g. chartscii-cli)"
           />
           <Button
             size="sm"

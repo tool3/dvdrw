@@ -11,7 +11,7 @@ import {
  * `DEFAULT_BRAND` is what we fall back to on first run / when storage
  * is unreadable / when validation fails.
  */
-export const DEFAULT_BRAND = '#a698ff';
+export const DEFAULT_BRAND = '#ff7a9c';
 
 /**
  * Suggested presets shown in the brand picker. Pick anything from this
