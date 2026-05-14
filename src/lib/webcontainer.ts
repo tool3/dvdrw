@@ -152,16 +152,54 @@ const writableLog = (onLog: (chunk: string) => void) =>
     },
   });
 
+// On iOS Safari under memory contention, `WebContainer.boot()` can stall
+// silently — no resolve, no reject — and the singleton `bootPromise` strands
+// the UI on "booting webcontainer…" indefinitely. Cap the wait and surface
+// it as a real failure the user can retry.
+const BOOT_TIMEOUT_MS = 25_000;
+const MOUNT_TIMEOUT_MS = 5_000;
+
+const withTimeout = <T>(p: Promise<T>, ms: number, label: string): Promise<T> =>
+  new Promise<T>((resolve, reject) => {
+    const t = setTimeout(
+      () => reject(new Error(`${label} timed out after ${Math.round(ms / 1000)}s`)),
+      ms,
+    );
+    p.then(
+      (v) => {
+        clearTimeout(t);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(t);
+        reject(e);
+      },
+    );
+  });
+
 const getInstance = async (
   onLog: (chunk: string) => void,
 ): Promise<BootedInstance> => {
   if (!bootPromise) {
     bootPromise = (async () => {
       onLog('booting webcontainer…\n');
-      const instance = await WebContainer.boot();
-      await instance.mount(SEED_TREE);
-      onLog('booted.\n');
-      return { instance, installed: false };
+      try {
+        const instance = await withTimeout(
+          WebContainer.boot(),
+          BOOT_TIMEOUT_MS,
+          'WebContainer.boot()',
+        );
+        await withTimeout(instance.mount(SEED_TREE), MOUNT_TIMEOUT_MS, 'mount');
+        onLog('booted.\n');
+        return { instance, installed: false };
+      } catch (err) {
+        // Reset both promises so the next Run click retries cleanly. Without
+        // this the rejection sticks and every subsequent click throws the
+        // same stale error.
+        bootPromise = null;
+        installPromise = null;
+        throw err;
+      }
     })();
   }
   return bootPromise;
@@ -280,6 +318,20 @@ export const runScript = async (
     throw new Error('webcontainers unsupported');
   }
 
+  try {
+    return await runScriptInner(input, handlers);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    handlers.onLog(`run failed: ${message}\n`);
+    handlers.onStage('error', message);
+    throw err;
+  }
+};
+
+const runScriptInner = async (
+  input: RunInput,
+  handlers: RunHandlers,
+): Promise<RunResult> => {
   handlers.onStage('booting', 'Booting WebContainer');
   const booted = await getInstance(handlers.onLog);
   await ensureInstalled(booted, handlers.onLog, handlers.onStage);
