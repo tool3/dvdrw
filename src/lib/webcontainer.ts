@@ -354,16 +354,28 @@ const runScriptInner = async (
         `export PATH=./node_modules/.bin:$PATH; ${command}`,
       ]);
       let buffer = '';
-      proc.output.pipeTo(
+      // Arrival times are the only record of how fast an in-place
+      // animation (chartscii -e, spinners, lolcat) actually redrew —
+      // the concatenated buffer has no timing in it. The renderer uses
+      // the span to pace the frames it splits back out.
+      let firstChunkAt = 0;
+      let lastChunkAt = 0;
+      const drained = proc.output.pipeTo(
         new WritableStream<string>({
           write(chunk) {
+            const now = performance.now();
+            if (firstChunkAt === 0) firstChunkAt = now;
+            lastChunkAt = now;
             buffer += chunk;
             handlers.onLog(chunk);
           },
         }),
       );
       await proc.exit;
-      return buffer;
+      // `exit` can resolve with bytes still in flight; without this the
+      // tail of the stream — the animation's final frames — is lost.
+      await drained.catch(() => {});
+      return { output: buffer, outputSpanMs: lastChunkAt - firstChunkAt };
     },
   };
   const rendered = await renderScriptAsync(input.source, input.options, executor);

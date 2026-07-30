@@ -15,16 +15,19 @@ import {
   coalesce,
   createFilmstripSVG,
   createGridState,
+  detectAnimationType,
   emitAnimated,
   generateFramesFromRecording,
   optimizeSvg,
   parseCDScript,
   parseCastFile,
   processInput,
+  splitIntoFrames,
   themes as builtinThemes,
 } from 'dvdrw';
 import type {
   AnimationOptions,
+  AnimationType,
   CDCommand,
   FrameData,
   Gradient,
@@ -156,8 +159,25 @@ const KEY_TO_INPUT: Record<string, string> = {
  * a shell sandbox; the actual SVG synthesis stays in-page so we don't
  * have to install dvdrw inside the container.
  */
+export interface ShellRunResult {
+  /** Combined stdout+stderr, escape sequences intact. */
+  output: string;
+  /**
+   * Wall-clock milliseconds between the command's first and last output
+   * chunk. Animated programs (chartscii `-e`, lolcat, spinners) pace their
+   * own redraws, and that pacing only exists in the arrival times — the
+   * concatenated buffer has no timing in it at all. `writeShellOutput`
+   * spreads the detected frames across this span so the SVG plays back at
+   * the speed the command actually ran. Omit (or 0) to fall back to a
+   * synthetic 30fps.
+   */
+  outputSpanMs?: number;
+}
+
 export interface ShellExecutor {
-  run: (command: string) => Promise<string>;
+  /** Returning a bare string is still supported; it just forfeits real
+   *  animation timing (see `ShellRunResult.outputSpanMs`). */
+  run: (command: string) => Promise<string | ShellRunResult>;
 }
 
 /**
@@ -177,6 +197,167 @@ const parseEscapes = (value: string): string =>
 /** Visible (rendered-cell) length of a prompt, after stripping SGR escapes. */
 const visibleLength = (s: string): number =>
   s.replace(/\x1b\[[0-9;]*m/g, '').length;
+
+/* ------------------------------------------------------------------ */
+/*                    Animated shell output → frames                  */
+/* ------------------------------------------------------------------ */
+/* A command's output reaches us as one concatenated string, so an     */
+/* in-place animation (chartscii -e redrawing with CSI A, lolcat with  */
+/* ESC 8, anything clearing with ESC c) used to land in a single       */
+/* `processInput` call: the virtual terminal faithfully replayed every */
+/* rewind-and-redraw at once and we captured only the end state — a    */
+/* static final chart. The container console looked animated because   */
+/* it repaints per arriving chunk; the SVG never got the chance.       */
+/*                                                                     */
+/* So we split the blob back into the frames the program intended and  */
+/* paint them one at a time, each its own captured frame. The rewind   */
+/* is driven by us rather than by the program's escapes: park at the   */
+/* row where the output began, erase everything below, draw the frame. */
+/* That makes all three rewind dialects behave identically and keeps   */
+/* the prompt above the output untouched.                              */
+/* ------------------------------------------------------------------ */
+
+/** Rewind dialects we replay frame-by-frame. `clear-line` is deliberately
+ *  absent: a bare `\x1b[2K` shows up in plenty of non-animated output
+ *  (npm, ora one-shots), and splitting on it would shred static logs into
+ *  bogus frames. This mirrors `isAnimatedOutput` in dvd's shell-recorder. */
+const ANIMATED_TYPES: ReadonlySet<AnimationType> = new Set<AnimationType>([
+  'terminal-reset',
+  'cursor-up',
+  'cursor-restore',
+]);
+
+const MIN_ANIMATION_FRAME_MS = 16;
+const MAX_ANIMATION_FRAME_MS = 1000;
+const DEFAULT_ANIMATION_FRAME_MS = 1000 / 30;
+
+/** Ceiling on frames contributed by one command. Each frame is a full grid
+ *  coalesce plus its own slice of SVG, so an animation that runs for many
+ *  seconds at 30fps would bloat the output for no visible gain. */
+const MAX_ANIMATION_FRAMES = 240;
+
+/**
+ * Escapes that only make sense while the program owns the whole screen.
+ * Replayed into our shared grid they'd fight the anchored redraw below, or
+ * wipe the prompt sitting above the output:
+ *   - `\x1b[?25l/h` cursor visibility — we track that on the context.
+ *   - `\x1b7` / `\x1b8` save/restore — would jump to a stale saved row.
+ *   - `\x1bc` full reset — would blow away everything, prompt included.
+ *   - `\x1b[2J` / `\x1b[3J` erase-display — same, minus the state reset.
+ * The separator escapes themselves are already gone: `splitIntoFrames`
+ * consumed them.
+ */
+const LIVE_CONTROL_RE = /\x1b\[\?25[lh]|\x1b\[[23]J|\x1b[78c]/g;
+
+/** Every escape sequence — measurement only, never used for painting. */
+const ANY_ESCAPE_RE = /\x1b\[[0-9;?]*[@-~]|\x1b[()][A-B0-9]|\x1b./g;
+
+/** Bash output is line-feed only; the grid wants CRLF. */
+const normalizeNewlines = (s: string): string => s.replace(/\r?\n/g, '\r\n');
+
+/** Rows a frame occupies once drawn, wrapping included. Used to reserve
+ *  vertical space before the animation starts. */
+const frameRowCount = (body: string, cols: number): number => {
+  let rows = 0;
+  for (const line of body.replace(ANY_ESCAPE_RE, '').split('\n')) {
+    rows += Math.max(1, Math.ceil(line.length / cols));
+  }
+  return rows;
+};
+
+/**
+ * Drop segments that carry no drawable content — only control sequences.
+ * A cursor-restore stream opens with its setup preamble (`\x1b[?25l\x1b7`)
+ * before the first `\x1b8`, and `splitIntoFrames` hands that back as a
+ * segment; painted, it's a blank flash at the head of the animation.
+ * Whitespace-only segments are kept: for cursor-up splits those are the
+ * program's intentional vertical spacing.
+ */
+const dropControlOnly = (frames: string[]): string[] => {
+  const drawable = frames.filter((f) => f.replace(ANY_ESCAPE_RE, '') !== '');
+  return drawable.length > 0 ? drawable : frames;
+};
+
+/** Downsample evenly, always keeping the first and last frame. */
+const sampleFrames = (frames: string[]): string[] => {
+  if (frames.length <= MAX_ANIMATION_FRAMES) return frames;
+  const step = (frames.length - 1) / (MAX_ANIMATION_FRAMES - 1);
+  return Array.from(
+    { length: MAX_ANIMATION_FRAMES },
+    (_, i) => frames[Math.round(i * step)],
+  );
+};
+
+/** Park the cursor at the start of a fresh row so the next prompt doesn't
+ *  land on the tail of the command's last line. No frame is captured —
+ *  the caller's `writePrompt` does that a moment later. */
+const settleCursor = (ctx: InterpreterContext): void => {
+  if (ctx.state.cursor.col !== 0) {
+    ctx.state = processInput(ctx.state, '\r\n');
+  }
+};
+
+/**
+ * Write one command's output into the grid, as an animation when the
+ * program drew one and as a single paint otherwise.
+ */
+const writeShellOutput = (
+  ctx: InterpreterContext,
+  output: string,
+  outputSpanMs: number,
+): void => {
+  const animation = detectAnimationType(output);
+  const frames = ANIMATED_TYPES.has(animation)
+    ? sampleFrames(dropControlOnly(splitIntoFrames(output, animation)))
+    : [];
+
+  // Not animated, or the split collapsed to one frame (e.g. a CLI that
+  // hides the cursor but never redraws): paint the blob in one go, which
+  // is exactly the old behaviour.
+  if (frames.length < 2) {
+    writeAndCapture(ctx, normalizeNewlines(output), 0);
+    settleCursor(ctx);
+    return;
+  }
+
+  const bodies = frames.map((f) =>
+    normalizeNewlines(f.replace(LIVE_CONTROL_RE, '')),
+  );
+
+  // Reserve room for the tallest frame before drawing anything. If the
+  // animation were to scroll the grid partway through, the anchor row
+  // would shift out from under every remaining frame and the redraw
+  // would smear. Scrolling up front costs nothing — it's what a real
+  // terminal does when output reaches the bottom.
+  let anchorRow = ctx.state.cursor.row;
+  const tallest = bodies.reduce(
+    (max, body) => Math.max(max, frameRowCount(body, ctx.state.width)),
+    0,
+  );
+  const overflow = anchorRow + tallest - ctx.state.height;
+  if (overflow > 0) {
+    ctx.state = processInput(ctx.state, '\n'.repeat(overflow));
+    anchorRow = Math.max(0, anchorRow - overflow);
+  }
+
+  // Spread the frames over the span the command actually took, so a
+  // 1s chartscii animation plays back in 1s.
+  const interval = Math.min(
+    MAX_ANIMATION_FRAME_MS,
+    Math.max(
+      MIN_ANIMATION_FRAME_MS,
+      outputSpanMs > 0 ? outputSpanMs / bodies.length : DEFAULT_ANIMATION_FRAME_MS,
+    ),
+  );
+
+  for (const body of bodies) {
+    // Home to the anchor (CUP is 1-based), erase from there to the end of
+    // the screen, repaint. Erasing matters for frames that shrink —
+    // otherwise the tail of a taller earlier frame stays on screen.
+    writeAndCapture(ctx, `\x1b[${anchorRow + 1};1H\x1b[0J${body}`, interval);
+  }
+  settleCursor(ctx);
+};
 
 /**
  * Walk the script's `Set` directives and pluck the last `PromptPrefix`
@@ -257,13 +438,13 @@ export const interpretAsync = async (
           typed = '';
           if (command) {
             try {
-              const output = await executor.run(command);
+              const result = await executor.run(command);
+              const { output, outputSpanMs } =
+                typeof result === 'string'
+                  ? { output: result, outputSpanMs: 0 }
+                  : result;
               if (output) {
-                // Normalize lone \n to \r\n so the terminal grid advances
-                // both rows and resets the column — bash output from
-                // WebContainer is line-feed only.
-                const normalized = output.replace(/\r?\n/g, '\r\n');
-                writeAndCapture(ctx, normalized, 0);
+                writeShellOutput(ctx, output, outputSpanMs ?? 0);
               }
             } catch (err) {
               const message = err instanceof Error ? err.message : String(err);
