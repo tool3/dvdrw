@@ -70,7 +70,7 @@ Set Padding 18
 Set BorderRadius 16
 Set BackgroundRadius 24
 
-Type "chartscii 1 2 3 4 5 -c 'gradient(pink, cyan)'"
+Type "chartscii 1 2 3 4 5 -c 'gradient(pink, cyan)' -e"
 Enter
 Sleep 3s
 
