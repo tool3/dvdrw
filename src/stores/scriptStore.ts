@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
 
 // const SAMPLE = `# A short demo. Edit me.
 // Set Theme dracula
@@ -11,7 +13,7 @@ import { create } from 'zustand';
 // Sleep 1s
 // `;
 
-const SAMPLE = `
+const MOBILE_SAMPLE = `
 # Intro Demo
 
 Set FontSize 60
@@ -46,6 +48,31 @@ Space
 Type "Knock, knock."
 
 Sleep 1s
+
+`
+
+const SAMPLE = isMobile ? MOBILE_SAMPLE : `
+
+# Intro Demo
+
+# Set FontSize 60
+# Set Template minimal
+# Set Width 2000
+Set LoopStyle fade
+Set Watermark "tool3/dvd-cli"
+Set Background "gradient(#ff7a59, #7c2bff:diagonal)"
+Set BackgroundPadding 64
+Set CursorStyle bar
+Set CursorColor #d35cff
+# Set PromptPrefix "[38;5;206m[0m "
+Set Theme monokai
+Set Padding 18
+Set BorderRadius 16
+Set BackgroundRadius 24
+
+Type "chartscii 1 2 3 4 5 -c 'gradient(pink, cyan)'"
+Enter
+Sleep 3s
 
 `
 
