@@ -13,12 +13,18 @@ import {
 import { useOptionsStore, type RenderOptions } from '../../stores/optionsStore';
 import { useAppStore } from '../../stores/appStore';
 import { Button } from '../primitives/Button';
-import { TextInput } from '../primitives/Form';
+import { Select, TextInput } from '../primitives/Form';
 import { Spinner } from '../primitives/Spinner';
 import { ZoomControls } from '../primitives/ZoomControls';
 import { MiniPlayer } from '../preview/MiniPlayer';
 import { TerminalBuffer, cellsToSpans } from '../../lib/terminal';
 import { styleToCss } from '../../lib/ansi';
+import {
+  VIDEO_QUALITY_LABELS,
+  encodeFramesToMp4,
+  isVideoExportSupported,
+} from '../../lib/video';
+import type { FrameData } from 'dvdrw';
 import styles from './Runner.module.scss';
 
 const CONSOLE_FG = '#c8c8c8';
@@ -65,8 +71,23 @@ const DownloadIcon = () => (
   </svg>
 );
 
-const downloadBlob = (text: string, filename: string, mime: string) => {
-  const blob = new Blob([text], { type: mime });
+const FilmIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden>
+    <rect
+      x="1.5"
+      y="2.5"
+      width="9"
+      height="7"
+      rx="1"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.2"
+    />
+    <path d="M4.5 2.5v7M7.5 2.5v7" stroke="currentColor" strokeWidth="1.2" />
+  </svg>
+);
+
+const saveBlob = (blob: Blob, filename: string) => {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -76,6 +97,9 @@ const downloadBlob = (text: string, filename: string, mime: string) => {
   a.remove();
   URL.revokeObjectURL(url);
 };
+
+const downloadBlob = (text: string, filename: string, mime: string) =>
+  saveBlob(new Blob([text], { type: mime }), filename);
 
 const AUTO_RERUN_DELAY_MS = 800;
 
@@ -89,6 +113,8 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
   const options = useOptionsStore((s) => s.options);
   const autoRun = useAppStore((s) => s.autoRun);
   const toggleAutoRun = useAppStore((s) => s.toggleAutoRun);
+  const videoQuality = useAppStore((s) => s.videoQuality);
+  const setVideoQuality = useAppStore((s) => s.setVideoQuality);
 
   const [stage, setStage] = useState<RunnerStage>('idle');
   const [message, setMessage] = useState(DEFAULT_MESSAGES.idle);
@@ -96,6 +122,9 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
   const [logTick, setLogTick] = useState(0);
   const [svg, setSvg] = useState<string | null>(null);
   const [durationMs, setDurationMs] = useState<number>(0);
+  const [frames, setFrames] = useState<FrameData[] | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const [exportPct, setExportPct] = useState(0);
   const [running, setRunning] = useState(false);
   const [hasRunOnce, setHasRunOnce] = useState(false);
   const [autoQueued, setAutoQueued] = useState(false);
@@ -120,11 +149,13 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
   const optionsRef = useRef<RenderOptions>(options);
   const hasRunOnceRef = useRef(false);
   const autoRunRef = useRef(autoRun);
+  const qualityRef = useRef(videoQuality);
 
   sourceRef.current = source;
   optionsRef.current = options;
   hasRunOnceRef.current = hasRunOnce;
   autoRunRef.current = autoRun;
+  qualityRef.current = videoQuality;
 
   const supported = useMemo(() => isSupported(), []);
   const noDeps = useMemo(() => isNoDepsDebug(), []);
@@ -228,6 +259,7 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
       );
       setSvg(result.svg);
       setDurationMs(result.durationMs ?? 0);
+      setFrames(result.frames ?? null);
       if (!hasRunOnceRef.current) setHasRunOnce(true);
     } catch {
       // stage already updated to 'error' inside runScript
@@ -291,6 +323,31 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
   }, [logTick]);
 
   const isLogEmpty = bufferRef.current.isEmpty();
+
+  const videoSupported = useMemo(() => isVideoExportSupported(), []);
+
+  const exportMp4 = useCallback(async () => {
+    if (!frames || exporting) return;
+    setExporting(true);
+    setExportPct(0);
+    try {
+      const { blob } = await encodeFramesToMp4({
+        frames,
+        options: optionsRef.current,
+        quality: qualityRef.current,
+        onProgress: (done, total) =>
+          setExportPct(total > 0 ? Math.round((done / total) * 100) : 0),
+      });
+      saveBlob(blob, filename.replace(/\.svg$/i, '') + '.mp4');
+    } catch (err) {
+      appendLog(
+        `mp4 export failed: ${err instanceof Error ? err.message : String(err)}\n`,
+      );
+    } finally {
+      setExporting(false);
+      setExportPct(0);
+    }
+  }, [frames, exporting, filename, appendLog]);
 
   const submitDep = useCallback(async () => {
     const name = depDraft.trim();
@@ -425,6 +482,42 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
           >
             Download SVG
           </Button>
+          {videoSupported && (
+            <Select
+              className={styles.qualitySelect}
+              value={videoQuality}
+              onChange={(e) =>
+                setVideoQuality(e.target.value as typeof videoQuality)
+              }
+              disabled={exporting}
+              aria-label="MP4 quality"
+              title={
+                VIDEO_QUALITY_LABELS.find((q) => q.value === videoQuality)?.hint
+              }
+              options={VIDEO_QUALITY_LABELS.map((q) => ({
+                label: q.label,
+                value: q.value,
+              }))}
+            />
+          )}
+          {videoSupported && (
+            <Button
+              size="sm"
+              variant="secondary"
+              iconLeft={<FilmIcon />}
+              disabled={!frames || exporting}
+              onClick={exportMp4}
+              title={
+                exporting
+                  ? 'Encoding MP4…'
+                  : 'Encode the animation as an H.264 MP4'
+              }
+              aria-label={exporting ? 'Encoding MP4' : 'Download MP4'}
+              mobileIconOnly
+            >
+              {exporting ? `Encoding ${exportPct}%` : 'Download MP4'}
+            </Button>
+          )}
         </div>
       </header>
 

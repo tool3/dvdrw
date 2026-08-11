@@ -167,3 +167,18 @@
   font-weight: var(--weight-medium);
   color: var(--text-primary);
 }
+
+/* MP4 quality picker — see the matching rule in Runner.module.scss. */
+.qualitySelect {
+  width: 104px;
+  flex: 0 0 auto;
+
+  select {
+    height: 28px;
+    font-size: var(--text-xs);
+  }
+
+  @media (max-width: 720px) {
+    display: none;
+  }
+}

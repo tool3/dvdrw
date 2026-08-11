@@ -13,6 +13,7 @@
  */
 
 import { WebContainer, type FileSystemTree } from '@webcontainer/api';
+import type { FrameData } from 'dvdrw';
 import type { RenderOptions } from '../stores/optionsStore';
 import { renderScriptAsync, type ShellExecutor } from './render';
 
@@ -24,6 +25,9 @@ export interface RunResult {
    *  scrubber. Set by `renderScriptAsync`'s output; omitted when the
    *  caller never goes through the in-page renderer. */
   durationMs?: number;
+  /** Frames the SVG was built from, kept so MP4 export doesn't have to
+   *  re-run the container commands. */
+  frames?: FrameData[];
 }
 
 export interface RunInput {
@@ -385,6 +389,7 @@ const runScriptInner = async (
     log: '',
     exitCode: 0,
     durationMs: rendered.durationMs,
+    frames: rendered.frames,
   };
 };
 

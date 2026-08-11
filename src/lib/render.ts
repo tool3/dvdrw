@@ -21,6 +21,7 @@ import {
   optimizeSvg,
   parseCDScript,
   parseCastFile,
+  planVideo,
   processInput,
   splitIntoFrames,
   themes as builtinThemes,
@@ -29,10 +30,13 @@ import type {
   AnimationOptions,
   AnimationType,
   CDCommand,
+  EmitterOptions,
   FrameData,
   Gradient,
   GridState,
   Theme,
+  VideoPlan,
+  VideoQuality,
 } from 'dvdrw';
 import type { RenderOptions } from '../stores/optionsStore';
 import { useCustomThemesStore, type CustomTheme } from '../stores/customThemesStore';
@@ -626,6 +630,47 @@ const interpret = (
   return { frames: ctx.frames, notices: Array.from(new Set(notices)) };
 };
 
+/**
+ * The emitter options shared by every output this app produces — the
+ * animated SVG, and the still frames the video encoder rasterizes.
+ *
+ * Kept in one place deliberately: the video is only faithful if each frame
+ * is emitted with byte-identical styling to the animation it came from, and
+ * two hand-maintained copies of this list would drift on the first new
+ * option anyone adds.
+ */
+export const buildEmitterOptions = (
+  options: RenderOptions,
+  theme: Theme,
+  width: number,
+  height: number,
+  // The app only ever sets a plain-string watermark, and the filmstrip
+  // context is narrower than EmitterOptions on that one field — so keep
+  // the narrower type here and stay assignable to both.
+): Omit<EmitterOptions, 'watermark'> & { watermark?: string } => ({
+  theme,
+  template: options.template,
+  width,
+  height,
+  fontSize: options.fontSize,
+  title: options.title,
+  watermark: options.watermark,
+  lineHeight: options.fontSize * options.lineHeight,
+  charWidth: options.fontSize * CHAR_WIDTH_RATIO,
+  letterSpacing: options.letterSpacing || undefined,
+  padding: options.padding,
+  borderRadius: options.borderRadius,
+  borderColor: options.borderColor,
+  borderWidth: options.borderWidth || undefined,
+  headerHeight: options.template === 'minimal' ? 0 : 40,
+  cursorStyle: options.cursorStyle,
+  cursorColor: options.cursorColor,
+  cursorBlink: options.cursorBlink,
+  background: parseBackground(options.background),
+  backgroundPadding: options.backgroundPadding,
+  backgroundRadius: options.backgroundRadius,
+});
+
 const buildAnimationOptions = (opts: RenderOptions): AnimationOptions => ({
   fps: opts.fps,
   loop: opts.loop,
@@ -868,42 +913,19 @@ export const buildAnimation = (
   const scaled = applyPlaybackSpeed(frames, options.playbackSpeed ?? 1);
 
   const { width, height } = computeDimensions(scaled, options);
-  const charWidth = options.fontSize * CHAR_WIDTH_RATIO;
-  const lineHeightPx = options.fontSize * options.lineHeight;
-  const headerHeight = options.template === 'minimal' ? 0 : 40;
-
-  let svg: string;
 
   // Background may be either a raw hex (e.g. "#1e1e2e") or the gradient
   // syntax dvdrw's high-level API accepts (`gradient(#a, #b:vertical)`).
   // Low-level emitters want it pre-parsed; if we hand them the raw
   // gradient string they bail and paint nothing — which is the "black
-  // background" the user was seeing.
-  const background = parseBackground(options.background);
+  // background" the user was seeing. `buildEmitterOptions` parses it.
+  const emitter = buildEmitterOptions(options, theme, width, height);
+
+  let svg: string;
 
   if (options.engine === 'smil') {
     const result = emitAnimated(scaled, {
-      theme,
-      template: options.template,
-      width,
-      height,
-      fontSize: options.fontSize,
-      title: options.title,
-      watermark: options.watermark,
-      lineHeight: lineHeightPx,
-      charWidth,
-      letterSpacing: options.letterSpacing || undefined,
-      padding: options.padding,
-      borderRadius: options.borderRadius,
-      borderColor: options.borderColor,
-      borderWidth: options.borderWidth || undefined,
-      headerHeight,
-      cursorStyle: options.cursorStyle,
-      cursorColor: options.cursorColor,
-      cursorBlink: options.cursorBlink,
-      background,
-      backgroundPadding: options.backgroundPadding,
-      backgroundRadius: options.backgroundRadius,
+      ...emitter,
       fps: options.fps,
       loop: options.loop,
       pauseAtEnd: options.pauseAtEnd,
@@ -912,28 +934,8 @@ export const buildAnimation = (
   } else {
     svg = createFilmstripSVG(
       {
+        ...emitter,
         frameData: scaled,
-        theme,
-        width,
-        height,
-        fontSize: options.fontSize,
-        template: options.template,
-        title: options.title,
-        watermark: options.watermark,
-        lineHeight: lineHeightPx,
-        charWidth,
-        letterSpacing: options.letterSpacing || undefined,
-        padding: options.padding,
-        borderRadius: options.borderRadius,
-        borderColor: options.borderColor,
-        borderWidth: options.borderWidth || undefined,
-        headerHeight,
-        cursorStyle: options.cursorStyle,
-        cursorColor: options.cursorColor,
-        cursorBlink: options.cursorBlink,
-        background,
-        backgroundPadding: options.backgroundPadding,
-        backgroundRadius: options.backgroundRadius,
         customGlyphs: options.customGlyphs ?? true,
       },
       buildAnimationOptions(options),
@@ -955,6 +957,40 @@ export const buildAnimation = (
   };
 };
 
+/**
+ * Build the constant-frame-rate plan a video encoder consumes, using the
+ * exact dimensions and styling `buildAnimation` would have produced for the
+ * same frames. `playbackSpeed` is applied first so the video honours it the
+ * same way the SVG does.
+ */
+export const buildVideoPlan = (
+  frames: FrameData[],
+  options: RenderOptions,
+  theme: Theme,
+  video: {
+    fps?: number;
+    loops?: number;
+    quality?: VideoQuality;
+    /** Explicit supersampling factor, overriding the tier's own. */
+    scale?: number;
+  } = {},
+): VideoPlan => {
+  if (frames.length === 0) {
+    throw new Error('No frames to encode. Run the script first.');
+  }
+  const scaled = applyPlaybackSpeed(frames, options.playbackSpeed ?? 1);
+  const { width, height } = computeDimensions(scaled, options);
+  return planVideo(scaled, {
+    emitter: buildEmitterOptions(options, theme, width, height),
+    fps: video.fps,
+    loops: video.loops,
+    quality: video.quality,
+    // Match the animated SVG's trailing hold so the video doesn't cut the
+    // instant the last frame lands.
+    pauseAtEnd: options.pauseAtEnd,
+  });
+};
+
 export interface ScriptRenderInput {
   kind: 'script';
   source: string;
@@ -969,7 +1005,39 @@ export type RenderInput = ScriptRenderInput | CastRenderInput;
 
 export interface RenderOutput extends RenderResult {
   notices: string[];
+  /**
+   * The frames the animation was built from. Kept on the result so video
+   * export doesn't have to re-run the whole interpreter (which, for the
+   * container path, would mean re-running the user's shell commands).
+   */
+  frames: FrameData[];
 }
+
+/**
+ * Produce just the frames for an input, without emitting any SVG.
+ *
+ * Used by video export from the preview surfaces, where the render itself
+ * happened inside the worker and the main thread never received the frames.
+ * Re-deriving is cheaper than shipping every frame across `postMessage` on
+ * each render just in case someone later clicks export.
+ */
+export const framesForInput = (
+  input: RenderInput,
+  options: RenderOptions,
+  customThemes: CustomTheme[] = [],
+): { frames: FrameData[]; theme: Theme } => {
+  const theme = resolveTheme(options.theme, customThemes);
+  if (input.kind === 'script') {
+    const script = parseCDScript(input.source);
+    const charWidth = options.fontSize * CHAR_WIDTH_RATIO;
+    const lineHeightPx = options.fontSize * options.lineHeight;
+    const termCols = Math.max(40, Math.floor(800 / charWidth));
+    const termRows = Math.max(8, Math.floor(420 / lineHeightPx));
+    const { frames } = interpret(script.commands, termCols, termRows, theme);
+    return { frames, theme };
+  }
+  return { frames: prepareCastFrames(input.source, theme), theme };
+};
 
 /**
  * Async variant of `renderInput` for the mobile path: walks the script
@@ -1000,7 +1068,7 @@ export const renderScriptAsync = async (
     options.cursorVisible,
   );
   const result = buildAnimation(frames, options, theme);
-  return { ...result, notices };
+  return { ...result, notices, frames };
 };
 
 export const renderInput = (
@@ -1019,13 +1087,13 @@ export const renderInput = (
 
     const { frames, notices } = interpret(script.commands, termCols, termRows, theme);
     const result = buildAnimation(frames, options, theme);
-    return { ...result, notices };
+    return { ...result, notices, frames };
   }
 
   const recording = parseCastFile(input.source);
   const frames = generateFramesFromRecording(recording, theme);
   const result = buildAnimation(frames, options, theme);
-  return { ...result, notices: [] };
+  return { ...result, notices: [], frames };
 };
 
 export { resolveTheme };

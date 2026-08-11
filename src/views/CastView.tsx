@@ -97,6 +97,7 @@ export const CastView = () => {
         state={state}
         notices={notices}
         filename={file ? file.name.replace(/\.cast$/, '.svg') : 'recording.svg'}
+        video={{ input, options }}
       />
     </Card>
   );

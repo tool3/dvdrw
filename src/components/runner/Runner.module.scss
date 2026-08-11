@@ -535,3 +535,21 @@
   color: var(--text-muted);
   font-style: italic;
 }
+
+/* MP4 quality picker. Sits immediately left of the Download MP4 button so
+   the pair reads as one control. Kept narrow — the three labels are short
+   and the toolbar is already dense — and hidden on the narrowest viewports
+   where the buttons collapse to icons and there is no room left. */
+.qualitySelect {
+  width: 104px;
+  flex: 0 0 auto;
+
+  select {
+    height: 28px;
+    font-size: var(--text-xs);
+  }
+
+  @media (max-width: 720px) {
+    display: none;
+  }
+}

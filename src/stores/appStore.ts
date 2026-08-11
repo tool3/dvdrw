@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { VideoQuality } from 'dvdrw';
 import { applyBrand, readStoredBrand, storeBrand } from '../lib/brandTheme';
 
 export type Theme = 'dark' | 'light';
@@ -14,13 +15,33 @@ interface AppState {
    *  ambient background blobs, the favicon, and the mobile browser
    *  theme-color meta. Persisted to localStorage. */
   brandColor: string;
+  /** Detail tier for MP4 export. Lives here rather than in the options
+   *  store on purpose: options changes trigger the Runner's auto-rerun,
+   *  and picking a video quality must not re-execute the user's
+   *  container commands. Persisted to localStorage. */
+  videoQuality: VideoQuality;
   setTheme: (theme: Theme) => void;
   toggleTheme: () => void;
   setView: (view: View) => void;
   setAutoRun: (autoRun: boolean) => void;
   toggleAutoRun: () => void;
   setBrandColor: (hex: string) => void;
+  setVideoQuality: (quality: VideoQuality) => void;
 }
+
+const VIDEO_QUALITY_KEY = 'dvdrw.videoQuality';
+
+const readInitialVideoQuality = (): VideoQuality => {
+  try {
+    const stored = localStorage.getItem(VIDEO_QUALITY_KEY);
+    if (stored === 'low' || stored === 'medium' || stored === 'high') {
+      return stored;
+    }
+  } catch {
+    /* ignore */
+  }
+  return 'medium';
+};
 
 const readInitialTheme = (): Theme => {
   if (typeof document === 'undefined') return 'dark';
@@ -51,6 +72,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   view: 'script',
   autoRun: true,
   brandColor: readInitialBrand(),
+  videoQuality: readInitialVideoQuality(),
   setTheme: (theme) => {
     persistTheme(theme);
     set({ theme });
@@ -67,5 +89,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     applyBrand(hex);
     storeBrand(hex);
     set({ brandColor: hex });
+  },
+  setVideoQuality: (videoQuality) => {
+    try {
+      localStorage.setItem(VIDEO_QUALITY_KEY, videoQuality);
+    } catch {
+      /* ignore */
+    }
+    set({ videoQuality });
   },
 }));
