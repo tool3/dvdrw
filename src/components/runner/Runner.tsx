@@ -125,6 +125,7 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
   const [frames, setFrames] = useState<FrameData[] | null>(null);
   const [exporting, setExporting] = useState(false);
   const [exportPct, setExportPct] = useState(0);
+  const [exportError, setExportError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
   const [hasRunOnce, setHasRunOnce] = useState(false);
   const [autoQueued, setAutoQueued] = useState(false);
@@ -133,13 +134,10 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
   const [depDraft, setDepDraft] = useState('');
   const [installing, setInstalling] = useState(false);
   const [zoom, setZoom] = useState(1);
-  // Console panel starts collapsed on narrow viewports — most of the time
-  // the user wants to see the rendered SVG, not the build log. They can
-  // expand it via the header chip.
-  const [consoleOpen, setConsoleOpen] = useState(() => {
-    if (typeof window === 'undefined') return true;
-    return window.matchMedia('(min-width: 961px)').matches;
-  });
+  // Console panel starts collapsed everywhere. What people come here for
+  // is the rendered SVG; the build log is for when something looks wrong.
+  // The toggle carries a dot when there's unread output behind it.
+  const [consoleOpen, setConsoleOpen] = useState(false);
 
   const logRef = useRef<HTMLPreElement | null>(null);
   const debounceRef = useRef<number | null>(null);
@@ -330,6 +328,7 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
     if (!frames || exporting) return;
     setExporting(true);
     setExportPct(0);
+    setExportError(null);
     try {
       const { blob } = await encodeFramesToMp4({
         frames,
@@ -340,9 +339,12 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
       });
       saveBlob(blob, filename.replace(/\.svg$/i, '') + '.mp4');
     } catch (err) {
-      appendLog(
-        `mp4 export failed: ${err instanceof Error ? err.message : String(err)}\n`,
-      );
+      // Surface it in the toolbar, not just the log — the console panel is
+      // collapsed by default, so a log-only failure reads as the button
+      // doing nothing at all.
+      const message = err instanceof Error ? err.message : String(err);
+      setExportError(message);
+      appendLog(`mp4 export failed: ${message}\n`);
     } finally {
       setExporting(false);
       setExportPct(0);
@@ -398,7 +400,9 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
       <header className={styles.toolbar}>
         <div className={styles.status}>
           <span className={[styles.dot, styles[`dot_${stage}`]].join(' ')} aria-hidden />
-          <span className={styles.statusText}>{status}</span>
+          <span className={styles.statusText}>
+            {exportError ? `MP4 export failed: ${exportError}` : status}
+          </span>
         </div>
         <div className={styles.actions}>
           <button

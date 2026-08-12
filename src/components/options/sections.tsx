@@ -1,6 +1,12 @@
-import { type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { useOptionsStore } from '../../stores/optionsStore';
-import { PRESETS } from '../../lib/presets';
+import {
+  PRESETS,
+  PRESET_BASELINE,
+  matchPreset,
+  presetPaletteId,
+  type Preset,
+} from '../../lib/presets';
 import {
   ColorInput,
   Field,
@@ -9,6 +15,7 @@ import {
   Switch,
   TextInput,
 } from '../primitives/Form';
+import { useCustomThemesStore } from '../../stores/customThemesStore';
 import { ThemePicker } from './ThemePicker';
 import sectionStyles from './sections.module.scss';
 
@@ -379,17 +386,59 @@ const OutputSection = () => {
    Closes the popover after the user applies one (closeOnApply). */
 const PresetsSection = ({ onApplied }: { onApplied?: () => void }) => {
   const apply = useOptionsStore((s) => s.applyPartial);
+  const options = useOptionsStore((s) => s.options);
+  const activeId = matchPreset(options);
+
+  // The list scrolls, so the applied preset can easily open below the
+  // fold — showing a selected state the user can't see is worse than
+  // showing none. `block: 'nearest'` leaves the scroll alone when it's
+  // already visible, so opening the popover doesn't jump for no reason.
+  const activeRef = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    activeRef.current?.scrollIntoView({ block: 'nearest' });
+    // Only on open — re-running as the user clicks around would yank the
+    // list under the cursor.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /**
+   * Presets whose look needs a palette no built-in provides register it in
+   * the custom-theme library under a stable id, upserting rather than
+   * appending so applying one twice doesn't stack duplicate cards. The
+   * script round-trip is safe too: the options→script writer serialises
+   * the palette inline, and `extractSettings` matches it straight back to
+   * this same entry by colour.
+   */
+  const applyPreset = (preset: Preset) => {
+    if (preset.palette) {
+      const id = presetPaletteId(preset.id);
+      const store = useCustomThemesStore.getState();
+      const entry = { ...preset.palette, id };
+      if (store.themes.some((t) => t.id === id)) {
+        store.updateTheme(id, entry);
+      } else {
+        store.addTheme(entry);
+      }
+    }
+    apply({ ...PRESET_BASELINE, ...preset.patch });
+    onApplied?.();
+  };
+
   return (
     <div className={sectionStyles.presetGrid}>
       {PRESETS.map((preset) => (
         <button
           key={preset.id}
           type="button"
-          className={sectionStyles.presetCard}
-          onClick={() => {
-            apply(preset.patch);
-            onApplied?.();
-          }}
+          className={[
+            sectionStyles.presetCard,
+            preset.id === activeId ? sectionStyles.presetCardActive : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+          ref={preset.id === activeId ? activeRef : undefined}
+          aria-pressed={preset.id === activeId}
+          onClick={() => applyPreset(preset)}
         >
           <span
             className={sectionStyles.presetSwatch}

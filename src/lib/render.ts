@@ -985,6 +985,10 @@ export const buildVideoPlan = (
     fps: video.fps,
     loops: video.loops,
     quality: video.quality,
+    // Must be forwarded: the encoder steps this down when a supersampled
+    // frame is too large for the browser's codec, and dropping it here
+    // silently rebuilt an identical oversized plan on every retry.
+    scale: video.scale,
     // Match the animated SVG's trailing hold so the video doesn't cut the
     // instant the last frame lands.
     pauseAtEnd: options.pauseAtEnd,

@@ -77,3 +77,69 @@ export const compressLightness = (hex: string, target: number): string => {
   const [h, s] = hexToHsl(hex);
   return hslToHex(h, s, target);
 };
+
+/* ------------------------------------------------------------------ */
+/*                             Contrast                               */
+/* ------------------------------------------------------------------ */
+
+/** WCAG relative luminance. Not the same as HSL lightness — green
+ *  contributes far more perceived brightness than blue, which is exactly
+ *  why "is this readable?" can't be answered from lightness alone. */
+export const relativeLuminance = (hex: string): number => {
+  const channel = (v: number) => {
+    const c = v / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  const [r, g, b] = hexToRgb(hex);
+  return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+};
+
+/** WCAG contrast ratio between two colours: 1 (identical) to 21 (black
+ *  on white). */
+export const contrastRatio = (a: string, b: string): number => {
+  const la = relativeLuminance(a);
+  const lb = relativeLuminance(b);
+  const [hi, lo] = la > lb ? [la, lb] : [lb, la];
+  return (hi + 0.05) / (lo + 0.05);
+};
+
+/** Whichever of black / white is more readable on `background`. */
+export const readableTextOn = (background: string): string =>
+  contrastRatio(background, '#ffffff') >= contrastRatio(background, '#000000')
+    ? '#ffffff'
+    : '#000000';
+
+/**
+ * Nudge `hex` along its own lightness axis until it reaches `minRatio`
+ * against `against`, keeping hue and saturation so it still reads as the
+ * same colour.
+ *
+ * Direction is chosen by which way there is room to move: on a light
+ * surface we darken, on a dark surface we lighten. Returns the input
+ * untouched when it already passes, so a well-chosen brand is never
+ * altered — this only ever rescues the extremes (pure white on the light
+ * theme, near-black on the dark one).
+ */
+export const ensureContrast = (
+  hex: string,
+  against: string,
+  minRatio: number,
+): string => {
+  if (contrastRatio(hex, against) >= minRatio) return hex;
+
+  const [h, s, l] = hexToHsl(hex);
+  const darken = relativeLuminance(against) > 0.5;
+
+  // One percentage point at a time: slower than a binary search but it
+  // stops at the *first* passing shade, so the result stays as close to
+  // the chosen brand as legibility allows.
+  for (let step = 1; step <= 100; step++) {
+    const next = hslToHex(
+      h,
+      s,
+      Math.max(0, Math.min(100, darken ? l - step : l + step)),
+    );
+    if (contrastRatio(next, against) >= minRatio) return next;
+  }
+  return darken ? '#000000' : '#ffffff';
+};

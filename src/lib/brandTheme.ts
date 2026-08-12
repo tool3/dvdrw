@@ -1,9 +1,35 @@
 import {
   adjustLightness,
   compressLightness,
+  contrastRatio,
+  ensureContrast,
   hexToRgba,
   normalizeHex,
+  readableTextOn,
 } from './color';
+
+/**
+ * Worst-case surface each theme puts behind accent-coloured content:
+ * the lightest panel on light, the darkest canvas on dark. Contrast is
+ * measured against these so a colour that survives here survives
+ * everywhere.
+ */
+const SURFACE = { light: '#FFFFFF', dark: '#06080F' } as const;
+
+/**
+ * The label colour each theme was designed to put on an accent fill
+ * (`--text-on-brand` in tokens.scss). Both clear AA against their own
+ * default accent — 5.0:1 on light, 8.1:1 on dark — so they are kept
+ * whenever they still pass, and only overridden when a chosen brand
+ * would make them unreadable. Preserving the intended look and
+ * guaranteeing legibility are not in conflict here.
+ */
+const THEME_ON_BRAND = { light: '#FFFFFF', dark: '#0A0810' } as const;
+
+/** UI components, borders and large text — WCAG's 3:1 non-text minimum. */
+const MIN_UI_CONTRAST = 3;
+/** Small text — WCAG AA's 4.5:1. */
+const MIN_TEXT_CONTRAST = 4.5;
 
 /**
  * Default brand color — the "iris violet" the app launched with.
@@ -59,27 +85,61 @@ export const storeBrand = (hex: string): void => {
  * declarations from `tokens.scss`, and triggers a favicon refresh so
  * the browser tab icon picks up the new color too.
  */
-export const applyBrand = (rawHex: string): void => {
+export const applyBrand = (
+  rawHex: string,
+  theme: 'light' | 'dark' = 'dark',
+): void => {
   const hex = normalizeHex(rawHex);
   const root = document.documentElement;
+  const surface = SURFACE[theme] ?? SURFACE.dark;
+
+  // The brand is whatever the user picked, and they can pick anything —
+  // including pure white, which on the light theme is invisible both as
+  // a fill and behind a white button label. So two derived colours:
+  //
+  //   --accent       the brand, darkened/lightened only as far as it
+  //                  takes to stay visible against the surface (3:1)
+  //   --accent-text  the same, pushed to 4.5:1 for small text
+  //
+  // A well-chosen brand passes both untouched; this only bites at the
+  // extremes. Anything carrying meaning — fills, focus rings, labels —
+  // follows the corrected value; purely decorative washes keep the pure
+  // hue so the brand still reads as the colour that was chosen.
+  const accent = ensureContrast(hex, surface, MIN_UI_CONTRAST);
+  const accentText = ensureContrast(hex, surface, MIN_TEXT_CONTRAST);
 
   // Accent ladder — full / hover-up / active-down, plus the alpha
   // variants used for glows, focus rings, and the "soft" tinted fills
   // beneath active buttons / selected tabs.
-  root.style.setProperty('--accent', hex);
-  root.style.setProperty('--accent-hover', adjustLightness(hex, 6));
-  root.style.setProperty('--accent-active', adjustLightness(hex, -6));
-  root.style.setProperty('--accent-soft', hexToRgba(hex, 0.16));
+  root.style.setProperty('--accent', accent);
+  root.style.setProperty('--accent-text', accentText);
+  root.style.setProperty('--accent-hover', adjustLightness(accent, 6));
+  root.style.setProperty('--accent-active', adjustLightness(accent, -6));
+  // Soft fills mark selected state and the ring marks focus, so both have
+  // to be perceivable — they follow the corrected accent. The glow is
+  // pure decoration and keeps the untouched brand hue.
+  root.style.setProperty('--accent-soft', hexToRgba(accent, 0.16));
+  root.style.setProperty('--accent-ring', hexToRgba(accent, 0.55));
   root.style.setProperty('--accent-glow', hexToRgba(hex, 0.42));
-  root.style.setProperty('--accent-ring', hexToRgba(hex, 0.55));
+
+  // Text that sits *on* the accent — a primary button's label. The theme's
+  // designed colour was a fixed token, which is what produced a white
+  // label on a white button. Keep it while it still reads, and fall back
+  // to whichever of black/white actually does when it doesn't.
+  const designedLabel = THEME_ON_BRAND[theme] ?? THEME_ON_BRAND.dark;
+  const label =
+    contrastRatio(accent, designedLabel) >= MIN_TEXT_CONTRAST
+      ? designedLabel
+      : readableTextOn(accent);
+  root.style.setProperty('--text-on-brand', label);
 
   // Legacy aliases kept around tokens.scss — components still reference
   // these in a few places, mirror them so a brand swap is total.
-  root.style.setProperty('--brand', hex);
-  root.style.setProperty('--brand-hover', adjustLightness(hex, 6));
-  root.style.setProperty('--brand-active', adjustLightness(hex, -6));
-  root.style.setProperty('--brand-soft', hexToRgba(hex, 0.16));
-  root.style.setProperty('--brand-ring', hexToRgba(hex, 0.55));
+  root.style.setProperty('--brand', accent);
+  root.style.setProperty('--brand-hover', adjustLightness(accent, 6));
+  root.style.setProperty('--brand-active', adjustLightness(accent, -6));
+  root.style.setProperty('--brand-soft', hexToRgba(accent, 0.16));
+  root.style.setProperty('--brand-ring', hexToRgba(accent, 0.55));
 
   // Ambient gradient blobs painted on the body. Use the same hue at
   // different alphas — visually coherent and gives every brand a

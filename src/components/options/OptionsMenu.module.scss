@@ -67,7 +67,7 @@
    active tab reads as "lit" rather than just "selected". */
 .tabActive {
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-text);
   box-shadow:
     0 1px 0 0 rgba(255, 255, 255, 0.12) inset,
     0 0 0 1px var(--accent-soft),
@@ -134,7 +134,7 @@
   transform: translateX(-50%) rotate(45deg);
   width: 12px;
   height: 12px;
-  background: var(--glass-bg-strong);
+  background: var(--popover-bg);
   border-left: 1px solid var(--glass-border-strong);
   border-top: 1px solid var(--glass-border-strong);
   backdrop-filter: blur(28px);
@@ -158,6 +158,13 @@
     overflow-y: auto;
     transform: none !important;
     /* stylelint-enable declaration-no-important */
+
+    /* The sheet itself scrolls here, so the body must not cap again —
+       two nested limits would strand the last rows unreachable. */
+    .popoverBody {
+      max-height: none;
+      overflow-y: visible;
+    }
   }
 
   .popoverWide {
@@ -299,7 +306,7 @@
   font-weight: var(--weight-medium);
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 .popoverTitle {
@@ -314,4 +321,45 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+
+  /* The popover is anchored under its tab and grows downward, so a tall
+     section (12 presets, 37+ themes, the full Animation panel) used to run
+     straight off the bottom of the screen with no way to reach it. Cap the
+     body and scroll it, leaving the header pinned. This is the single
+     scroll container for every section — individual sections must not add
+     their own, or you get nested scrollbars. */
+  max-height: min(56vh, 460px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+
+  /* Breathing room inside the scroll box, cancelled by matching negative
+     margins so nothing actually moves. The top gap matters: cards lift
+     `translateY(-1px)` on hover, and without it the scroll container
+     clipped the top border clean off the first row. The sides clear the
+     scrollbar and the focus ring; the bottom clears the last row's glow. */
+  padding: 3px var(--space-1) var(--space-2) 3px;
+  margin: -3px calc(var(--space-1) * -1) calc(var(--space-2) * -1) -3px;
+
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border-radius: var(--radius-pill);
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+
+  &:hover::-webkit-scrollbar-thumb {
+    background: var(--text-muted);
+    background-clip: content-box;
+  }
 }

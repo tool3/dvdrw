@@ -62,7 +62,7 @@
 /* Popover — same family but anchored & elevated. Used by PillMenu's
    per-category panels. */
 @mixin glass-popover {
-  background: var(--glass-bg-strong);
+  background: var(--popover-bg);
   border: 1px solid var(--glass-border-strong);
   border-radius: var(--radius-3);
   box-shadow: var(--shadow-glass), var(--shadow-3);

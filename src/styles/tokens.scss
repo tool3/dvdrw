@@ -107,6 +107,11 @@
      the bottom edge gets a faint inner shadow to ground the surface. */
   --glass-bg: rgba(255, 255, 255, 0.04);
   --glass-bg-strong: rgba(255, 255, 255, 0.06);
+  /* Popovers float over the live preview, so their contrast can't depend
+     on what happens to be behind them. At 6% the panel was effectively
+     transparent and 11px labels measured 1.4:1 over a mid-tone render —
+     the frosted look survives at 92%, the legibility problem doesn't. */
+  --popover-bg: rgba(16, 18, 32, 0.92);
   --glass-bg-hover: rgba(255, 255, 255, 0.07);
   --glass-bg-active: rgba(255, 255, 255, 0.09);
   --glass-border: rgba(255, 255, 255, 0.08);
@@ -126,6 +131,10 @@
   /* Accent — iris violet, refined evolution of #7C5FFF.
      A bit cooler, a bit more luminous, easier on glass. */
   --accent: #A698FF;
+  /* Accent at small-text contrast. JS overrides both from the brand
+     colour, clamping each against this theme's surface; these are the
+     defaults used before that runs. */
+  --accent-text: #A698FF;
   --accent-hover: #B6AAFF;
   --accent-active: #9686F5;
   --accent-soft: rgba(166, 152, 255, 0.16);
@@ -195,6 +204,7 @@
 
   --glass-bg: rgba(255, 255, 255, 0.55);
   --glass-bg-strong: rgba(255, 255, 255, 0.7);
+  --popover-bg: rgba(255, 255, 255, 0.94);
   --glass-bg-hover: rgba(255, 255, 255, 0.78);
   --glass-bg-active: rgba(255, 255, 255, 0.86);
   --glass-border: rgba(15, 15, 25, 0.06);
@@ -212,6 +222,7 @@
   --text-on-brand: #FFFFFF;
 
   --accent: #6A56F0;
+  --accent-text: #6A56F0;
   --accent-hover: #5C49DF;
   --accent-active: #4F3BD0;
   --accent-soft: rgba(106, 86, 240, 0.10);

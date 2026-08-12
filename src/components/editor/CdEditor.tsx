@@ -9,8 +9,10 @@ import {
   drawSelection,
 } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
+import { autocompletion, completionKeymap } from '@codemirror/autocomplete';
 import { bracketMatching, indentOnInput } from '@codemirror/language';
 import { cd } from './cdLanguage';
+import { cdCompletion } from './cdCompletion';
 import { editorThemeBundle, type EditorTheme } from './cdEditorTheme';
 import { useAppStore } from '../../stores/appStore';
 import styles from './CdEditor.module.scss';
@@ -44,7 +46,22 @@ export const CdEditor = ({ value, onChange }: CdEditorProps) => {
         bracketMatching(),
         indentOnInput(),
         highlightActiveLine(),
-        keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
+        // completionKeymap first so Enter/Escape reach the open dropdown
+        // before defaultKeymap treats them as newline / clear-selection.
+        keymap.of([
+          ...completionKeymap,
+          ...defaultKeymap,
+          ...historyKeymap,
+          indentWithTab,
+        ]),
+        autocompletion({
+          // `override` replaces the default word-scraping source entirely.
+          // Suggesting words already in the buffer is noise here — the
+          // vocabulary is small, closed, and known up front.
+          override: [cdCompletion],
+          activateOnTyping: true,
+          icons: false,
+        }),
         cd(),
         themeCompartment.of(editorThemeBundle(appTheme as EditorTheme)),
         EditorView.lineWrapping,

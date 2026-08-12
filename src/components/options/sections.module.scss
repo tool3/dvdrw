@@ -35,6 +35,26 @@
   }
 }
 
+/* The applied preset. Drawn as an inset ring on top of the existing 1px
+   border rather than by thickening it — a wider border would reflow the
+   card's content by a pixel the moment it became active. */
+.presetCardActive {
+  border-color: var(--accent);
+  background: var(--glass-bg-hover);
+  box-shadow:
+    0 0 0 1px var(--accent) inset,
+    0 1px 0 0 rgba(255, 255, 255, 0.08) inset,
+    0 8px 20px -10px var(--accent-glow);
+
+  &:hover {
+    box-shadow:
+      0 0 0 1px var(--accent) inset,
+      0 1px 0 0 rgba(255, 255, 255, 0.08) inset,
+      0 8px 20px -8px var(--accent-glow),
+      var(--shadow-1);
+  }
+}
+
 .presetSwatch {
   display: block;
   height: 64px;
@@ -69,6 +89,6 @@
 
 .presetDesc {
   font-size: var(--text-11);
-  color: var(--text-muted);
+  color: var(--text-secondary);
   line-height: var(--leading-normal);
 }

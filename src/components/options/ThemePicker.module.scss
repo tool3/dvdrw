@@ -4,10 +4,8 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  /* Cap the popover height — long theme lists shouldn't push the popover
-     past the viewport. The grid scrolls within. */
-  max-height: 70vh;
-  overflow-y: auto;
+  /* Scrolling belongs to .popoverBody — a second container here would
+     nest scrollbars and trap the wheel inside the grid. */
   margin: -2px; /* reclaim space lost to scrollbar gutter */
   padding: 2px;
 }
@@ -24,7 +22,7 @@
   font-weight: var(--weight-semibold);
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 .grid {
