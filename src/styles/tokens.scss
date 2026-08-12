@@ -110,8 +110,11 @@
   /* Popovers float over the live preview, so their contrast can't depend
      on what happens to be behind them. At 6% the panel was effectively
      transparent and 11px labels measured 1.4:1 over a mid-tone render —
-     the frosted look survives at 92%, the legibility problem doesn't. */
-  --popover-bg: rgba(16, 18, 32, 0.92);
+     the frosted look survives at 92%, the legibility problem doesn't.
+     The tone is the editor's own surface (sampled: #0b0c12) rather than a
+     navy, so panels read as the same material as the rest of the app
+     instead of a blue sheet floating over it. */
+  --popover-bg: rgba(11, 12, 18, 0.92);
   --glass-bg-hover: rgba(255, 255, 255, 0.07);
   --glass-bg-active: rgba(255, 255, 255, 0.09);
   --glass-border: rgba(255, 255, 255, 0.08);
