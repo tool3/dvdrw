@@ -19,12 +19,9 @@ import {
   brightness,
   chromaticAberration,
   contrast,
-  crt,
-  cyberpunk,
   duotone,
   emboss,
   fade,
-  film,
   glitch,
   glow,
   grain,
@@ -32,12 +29,9 @@ import {
   halftone,
   hueRotate,
   invert,
-  neon,
-  newsprint,
   outline,
   pixelate,
   posterize,
-  riso,
   saturate,
   scanlines,
   sepia,
@@ -45,10 +39,8 @@ import {
   sharpen,
   threshold,
   tint,
-  vhs,
   vignette,
   wave,
-  xerox,
 } from '@svgfx/postprocessing';
 import type { Effect } from '@svgfx/postprocessing';
 
@@ -83,7 +75,7 @@ export type Control =
       options: readonly string[];
     });
 
-export type EffectGroup = 'Looks' | 'Light' | 'Colour' | 'Texture' | 'Distort';
+export type EffectGroup = 'Light' | 'Colour' | 'Texture' | 'Distort';
 
 export interface EffectDescriptor {
   id: string;
@@ -150,73 +142,6 @@ const ANIMATE = (speedDefault: number, speedMax: number): Control[] => [
 /* ------------------------------------------------------------------ */
 
 export const EFFECTS: readonly EffectDescriptor[] = [
-  /* ------------------------------- Looks ------------------------- */
-  {
-    id: 'crt',
-    label: 'CRT',
-    group: 'Looks',
-    description: 'Scanlines, bloom and a curved-glass vignette.',
-    controls: [bool('animate', 'Animate', false)],
-    build: (p) => crt({ animate: p.animate as boolean }),
-  },
-  {
-    id: 'vhs',
-    label: 'VHS',
-    group: 'Looks',
-    description: 'Tape wobble, colour bleed and tracking noise.',
-    controls: [bool('animate', 'Animate', false)],
-    build: (p) => vhs({ animate: p.animate as boolean }),
-  },
-  {
-    id: 'cyberpunk',
-    label: 'Cyberpunk',
-    group: 'Looks',
-    description: 'Neon bloom over a hard glitch.',
-    controls: [bool('animate', 'Animate', false)],
-    build: (p) => cyberpunk({ animate: p.animate as boolean }),
-  },
-  {
-    id: 'film',
-    label: 'Film',
-    group: 'Looks',
-    description: 'Grain, halation and a gentle vignette.',
-    controls: [],
-    build: () => film(),
-  },
-  {
-    id: 'newsprint',
-    label: 'Newsprint',
-    group: 'Looks',
-    description: 'Coarse halftone on off-white stock.',
-    controls: [],
-    build: () => newsprint(),
-  },
-  {
-    id: 'xerox',
-    label: 'Xerox',
-    group: 'Looks',
-    description: 'Blown-out photocopy contrast.',
-    controls: [],
-    build: () => xerox(),
-  },
-  {
-    id: 'riso',
-    label: 'Riso',
-    group: 'Looks',
-    description: 'Two-ink risograph misprint.',
-    controls: [color('shadow', 'Ink', '#12263a'), color('highlight', 'Paper', '#f4d35e')],
-    build: (p) =>
-      riso({ shadow: p.shadow as string, highlight: p.highlight as string }),
-  },
-  {
-    id: 'neon',
-    label: 'Neon',
-    group: 'Looks',
-    description: 'Tube glow traced around every edge.',
-    controls: [color('color', 'Colour', '#ff2d55')],
-    build: (p) => neon({ color: p.color as string }),
-  },
-
   /* ------------------------------- Light ------------------------- */
   {
     id: 'bloom',
@@ -569,7 +494,6 @@ export const EFFECTS: readonly EffectDescriptor[] = [
 ];
 
 export const EFFECT_GROUPS: readonly EffectGroup[] = [
-  'Looks',
   'Light',
   'Colour',
   'Texture',
@@ -580,6 +504,126 @@ const BY_ID = new Map(EFFECTS.map((e) => [e.id, e]));
 
 export const findEffect = (id: string): EffectDescriptor | undefined =>
   BY_ID.get(id);
+
+/* ------------------------------------------------------------------ */
+/*                                Looks                               */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The library's presets, expanded into the effects they're made of.
+ *
+ * `compose()` in the library is a plain `flatMap` over its children's
+ * stages, so applying this recipe is structurally identical to calling
+ * `crt()` — verified against all eight presets, byte-for-byte once the
+ * generated uid prefix is normalised. Expanding them here rather than
+ * calling the preset factory costs nothing visually and buys the thing a
+ * single opaque effect can't: every knob inside a Look is reachable.
+ *
+ * Parameters below are the preset's own, which are frequently *not* the
+ * effect defaults — `crt` runs scanlines at gap 3 / opacity 0.35, not the
+ * 4 / 0.28 you get from `scanlines()` alone. Copied from
+ * `svgfx/src/presets/index.ts`; re-check on a library bump.
+ */
+export interface LookDescriptor {
+  id: string;
+  label: string;
+  description: string;
+  recipe: ReadonlyArray<{
+    id: string;
+    params: Record<string, ControlValue>;
+  }>;
+}
+
+export const LOOKS: readonly LookDescriptor[] = [
+  {
+    id: 'crt',
+    label: 'CRT',
+    description: 'Scanlines, bloom and a curved-glass vignette.',
+    recipe: [
+      { id: 'chromaticAberration', params: { offset: 1.2 } },
+      { id: 'bloom', params: { radius: 5, threshold: 0.5, intensity: 1.2 } },
+      { id: 'scanlines', params: { gap: 3, thickness: 1.1, opacity: 0.35, speed: 4 } },
+      { id: 'vignette', params: { amount: 0.55, radius: 0.55 } },
+    ],
+  },
+  {
+    id: 'vhs',
+    label: 'VHS',
+    description: 'Tape wobble, colour bleed and tracking noise.',
+    recipe: [
+      { id: 'chromaticAberration', params: { offset: 3 } },
+      { id: 'wave', params: { amplitude: 2.5, frequency: 0.012, octaves: 1, speed: 0.35 } },
+      { id: 'grain', params: { amount: 0.28, size: 1.1, speed: 14 } },
+      { id: 'scanlines', params: { gap: 5, thickness: 2.2, opacity: 0.16, speed: 2 } },
+      { id: 'vignette', params: { amount: 0.5, radius: 0.5 } },
+    ],
+  },
+  {
+    id: 'cyberpunk',
+    label: 'Cyberpunk',
+    description: 'Neon bloom over a hard glitch.',
+    recipe: [
+      { id: 'saturate', params: { amount: 1.35 } },
+      { id: 'glitch', params: { intensity: 0.6, slices: 9, colorShift: true } },
+      { id: 'bloom', params: { radius: 8, threshold: 0.45, intensity: 1.25 } },
+      { id: 'scanlines', params: { gap: 4, thickness: 1.4, opacity: 0.22, speed: 5 } },
+    ],
+  },
+  {
+    id: 'film',
+    label: 'Film',
+    description: 'Grain, halation and a gentle vignette.',
+    recipe: [
+      { id: 'contrast', params: { amount: 1.12 } },
+      { id: 'bloom', params: { radius: 6, threshold: 0.68 } },
+      { id: 'grain', params: { amount: 0.26, size: 0.9 } },
+      { id: 'vignette', params: { amount: 0.5, radius: 0.62 } },
+    ],
+  },
+  {
+    id: 'newsprint',
+    label: 'Newsprint',
+    description: 'Coarse halftone on off-white stock.',
+    recipe: [
+      { id: 'halftone', params: { size: 5, levels: 4, color: '#1c1c1c', background: '#f2ede2' } },
+      { id: 'grain', params: { amount: 0.28, size: 1.5 } },
+    ],
+  },
+  {
+    id: 'xerox',
+    label: 'Xerox',
+    description: 'Blown-out photocopy contrast.',
+    recipe: [
+      { id: 'threshold', params: { level: 0.56, dark: '#101010', light: '#f6f4ef' } },
+      { id: 'grain', params: { amount: 0.44, size: 1.7 } },
+    ],
+  },
+  {
+    id: 'riso',
+    label: 'Riso',
+    description: 'Two-ink risograph misprint.',
+    recipe: [
+      { id: 'duotone', params: { shadow: '#2b3a67', highlight: '#ff5a5f' } },
+      { id: 'posterize', params: { steps: 4 } },
+      { id: 'grain', params: { amount: 0.4, size: 1.4 } },
+    ],
+  },
+  {
+    id: 'neon',
+    label: 'Neon',
+    description: 'Tube glow traced around every edge.',
+    recipe: [
+      { id: 'saturate', params: { amount: 1.6 } },
+      { id: 'glow', params: { color: '#4cc9f0', radius: 9, intensity: 1.4 } },
+      { id: 'bloom', params: { radius: 12, threshold: 0.35, intensity: 1.3 } },
+    ],
+  },
+];
+
+const LOOKS_BY_ID = new Map(LOOKS.map((l) => [l.id, l]));
+
+export const findLook = (id: string): LookDescriptor | undefined =>
+  LOOKS_BY_ID.get(id);
 
 /* ------------------------------------------------------------------ */
 /*                            Stored config                          */
@@ -596,7 +640,91 @@ export interface EffectConfig {
   id: string;
   enabled: boolean;
   params: Record<string, ControlValue>;
+  /**
+   * Set when this entry was added as part of a Look. Consecutive entries
+   * sharing a `group.uid` render as one expandable container.
+   *
+   * The stack itself stays flat, which matters: svgfx applies effects as a
+   * flat ordered pipeline, so grouping is presentation only and can never
+   * change what gets rendered.
+   */
+  group?: { uid: string; id: string; label: string };
+  /**
+   * What this entry looked like when it was added — the Look's recipe
+   * values for entries that came from one.
+   *
+   * Without it, "edited" would mean "differs from the effect's default",
+   * which is true of nearly every step in a Look the moment it's added
+   * (CRT runs scanlines at gap 3, the default is 4) and so says nothing.
+   * Against the baseline it means what the user actually wants to know:
+   * you changed this from what the Look shipped.
+   */
+  baseline?: Record<string, ControlValue>;
 }
+
+/** Whether an entry has been moved off the values it was created with. */
+export const isTuned = (entry: EffectConfig): boolean => {
+  const baseline = entry.baseline ?? {};
+  const keys = new Set([...Object.keys(entry.params), ...Object.keys(baseline)]);
+  for (const key of keys) {
+    if (!Object.is(entry.params[key], baseline[key])) return true;
+  }
+  return false;
+};
+
+/** Expand a Look into the stack entries it's made of. */
+export const expandLook = (look: LookDescriptor): EffectConfig[] => {
+  const groupUid = newEffectUid(`look-${look.id}`);
+  return look.recipe.map((step) => ({
+    uid: newEffectUid(step.id),
+    id: step.id,
+    enabled: true,
+    params: { ...step.params },
+    group: { uid: groupUid, id: look.id, label: look.label },
+    baseline: { ...step.params },
+  }));
+};
+
+/**
+ * Contiguous runs of the stack, so the UI can draw Looks as containers.
+ * A run is either a lone effect or every consecutive entry belonging to
+ * the same Look instance.
+ */
+export type StackRun =
+  | { kind: 'effect'; entry: EffectConfig; index: number }
+  | {
+      kind: 'group';
+      uid: string;
+      id: string;
+      label: string;
+      entries: EffectConfig[];
+      start: number;
+    };
+
+export const groupStack = (stack: readonly EffectConfig[]): StackRun[] => {
+  const runs: StackRun[] = [];
+  for (let i = 0; i < stack.length; i++) {
+    const entry = stack[i];
+    if (!entry.group) {
+      runs.push({ kind: 'effect', entry, index: i });
+      continue;
+    }
+    const last = runs[runs.length - 1];
+    if (last?.kind === 'group' && last.uid === entry.group.uid) {
+      last.entries.push(entry);
+      continue;
+    }
+    runs.push({
+      kind: 'group',
+      uid: entry.group.uid,
+      id: entry.group.id,
+      label: entry.group.label,
+      entries: [entry],
+      start: i,
+    });
+  }
+  return runs;
+};
 
 export const defaultParams = (
   descriptor: EffectDescriptor,
