@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { useAppStore, type View } from './appStore';
+import type { EffectConfig } from '../lib/effects';
 
 export type TemplateKind = 'macos' | 'windows' | 'minimal';
 export type CursorStyle = 'block' | 'bar' | 'underline';
@@ -63,6 +64,15 @@ export interface RenderOptions {
   /** Render block-drawing glyphs (▀▄█) as geometric SVG shapes instead
    *  of relying on the font's coverage. Cleaner across font stacks. */
   customGlyphs: boolean;
+  /**
+   * Post-processing stack applied to the finished SVG via
+   * `@svgfx/postprocessing`. Lives on RenderOptions so it reaches the
+   * worker and the container runner through the same channel every other
+   * option does, and so an edit triggers the usual auto-rerender. It has
+   * no `.cd` equivalent — the CLI has no effects — so it is deliberately
+   * absent from SYNCABLE_KEYS and never written to the script.
+   */
+  effects: EffectConfig[];
 }
 
 export const DEFAULT_OPTIONS: RenderOptions = {
@@ -104,6 +114,7 @@ export const DEFAULT_OPTIONS: RenderOptions = {
   engine: 'filmstrip',
   optimize: true,
   customGlyphs: true,
+  effects: [],
 };
 
 /**

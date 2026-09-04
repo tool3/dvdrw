@@ -38,6 +38,8 @@ import type {
   VideoPlan,
   VideoQuality,
 } from 'dvdrw';
+import { svgfx } from '@svgfx/postprocessing';
+import { buildEffects, type EffectConfig } from './effects';
 import type { RenderOptions } from '../stores/optionsStore';
 import { useCustomThemesStore, type CustomTheme } from '../stores/customThemesStore';
 import type { RenderResult } from './types';
@@ -74,6 +76,31 @@ const parseBackground = (
     }
   }
   return gradient;
+};
+
+/**
+ * Run the post-processing stack over a finished SVG.
+ *
+ * Deliberately forgiving: an effect that throws must not take the whole
+ * preview down with it, because the stack is user-assembled and a bad
+ * parameter combination is a normal thing to hit while dragging a slider.
+ * On failure the un-effected SVG is returned, which reads as "the effect
+ * didn't apply" rather than a blank pane.
+ */
+const applyEffects = (
+  svg: string,
+  stack: readonly EffectConfig[] = [],
+  settings: { animate?: boolean } = {},
+): string => {
+  if (!stack.length) return svg;
+  const effects = buildEffects(stack);
+  if (!effects.length) return svg;
+  try {
+    return svgfx(svg, effects, { animate: settings.animate ?? true });
+  } catch (err) {
+    console.error('svgfx: effect stack failed, falling back to the plain SVG', err);
+    return svg;
+  }
 };
 
 const CHAR_WIDTH_RATIO = 0.6;
@@ -946,6 +973,14 @@ export const buildAnimation = (
     svg = optimizeSvg(svg);
   }
 
+  // Post-processing runs last, after optimisation on purpose: the
+  // optimiser doesn't know about the filter chains and `<defs>` svgfx
+  // injects, and running it over them risks pruning something it reads as
+  // unused. Effects are also additive to the root, so the frame layers and
+  // their `<animate>` elements pass through untouched — verified: the
+  // SMIL animation survives every effect in the registry.
+  svg = applyEffects(svg, options.effects);
+
   const lastTs = scaled[scaled.length - 1].timestamp;
 
   return {
@@ -980,7 +1015,7 @@ export const buildVideoPlan = (
   }
   const scaled = applyPlaybackSpeed(frames, options.playbackSpeed ?? 1);
   const { width, height } = computeDimensions(scaled, options);
-  return planVideo(scaled, {
+  const plan = planVideo(scaled, {
     emitter: buildEmitterOptions(options, theme, width, height),
     fps: video.fps,
     loops: video.loops,
@@ -993,6 +1028,41 @@ export const buildVideoPlan = (
     // instant the last frame lands.
     pauseAtEnd: options.pauseAtEnd,
   });
+  return withEffects(plan, options.effects);
+};
+
+/**
+ * Decorate a video plan so every frame it hands out is post-processed.
+ *
+ * The video path never touches `buildAnimation` — it emits each frame
+ * straight from the lib — so without this an effect stack would show in
+ * the preview and the SVG and then silently vanish from the MP4.
+ *
+ * Effects are applied with `animate: false`. Each frame is a still, and an
+ * effect's own SMIL (glitch, grain, scanline drift) would be sampled at a
+ * single instant per frame — frozen, and identically frozen in every
+ * frame. The same reasoning the plan already applies to cursor blink.
+ */
+const withEffects = (
+  plan: VideoPlan,
+  stack: readonly EffectConfig[] = [],
+): VideoPlan => {
+  if (!stack.length || buildEffects(stack).length === 0) return plan;
+  const decorate = (svg: string) => applyEffects(svg, stack, { animate: false });
+  return {
+    ...plan,
+    render: (index: number) => decorate(plan.render(index)),
+    *frames() {
+      let last = '';
+      for (const frame of plan.frames()) {
+        // Repeated frames are byte-identical, so post-process once and
+        // reuse — this is the difference between one svgfx pass per
+        // visible change and one per output frame.
+        if (!frame.repeatsPrevious) last = decorate(frame.svg);
+        yield { ...frame, svg: last };
+      }
+    },
+  };
 };
 
 export interface ScriptRenderInput {

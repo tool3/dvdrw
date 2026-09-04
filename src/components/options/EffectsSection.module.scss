@@ -1,0 +1,236 @@
+@use '../../styles/mixins' as *;
+
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* ----------------------------- The stack ----------------------------- */
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.stackHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.stackTitle {
+  font-size: var(--text-11);
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-primary);
+}
+
+.clear {
+  @include reset-button;
+  font-size: var(--text-11);
+  color: var(--text-secondary);
+  transition: color var(--duration-fast) var(--ease-out);
+
+  &:hover {
+    color: var(--accent-text);
+  }
+}
+
+.empty {
+  margin: 0;
+  font-size: var(--text-11);
+  line-height: var(--leading-normal);
+  color: var(--text-secondary);
+  padding: var(--space-3);
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius-2);
+}
+
+.rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.row {
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-2);
+  background: var(--glass-bg);
+  overflow: hidden;
+}
+
+.rowHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+}
+
+/* The name doubles as the expand toggle, so it takes all the slack
+   between the enable switch and the row actions. */
+.rowName {
+  @include reset-button;
+  @include clickable-surface;
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  text-align: left;
+  border-radius: var(--radius-1);
+  padding: 2px 4px;
+
+  &:hover:not(:disabled) {
+    color: var(--accent-text);
+  }
+
+  &:disabled {
+    cursor: default;
+  }
+
+  &:focus-visible {
+    @include focus-ring;
+  }
+}
+
+.rowNameOpen {
+  color: var(--accent-text);
+}
+
+.rowLabel {
+  font-size: var(--text-12);
+  font-weight: var(--weight-medium);
+  color: inherit;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rowMeta {
+  font-size: var(--text-11);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.rowActions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+}
+
+.iconBtn {
+  @include reset-button;
+  @include clickable-surface;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-1);
+  color: var(--text-secondary);
+
+  &:hover:not(:disabled) {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+
+  &:focus-visible {
+    @include focus-ring;
+  }
+}
+
+.iconBtnDanger:hover:not(:disabled) {
+  color: var(--danger, #ff6b6b);
+}
+
+.params {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-top: 1px solid var(--glass-border);
+  background: var(--bg-hover);
+}
+
+.paramsDesc {
+  margin: 0;
+  font-size: var(--text-11);
+  line-height: var(--leading-normal);
+  color: var(--text-secondary);
+}
+
+.reset {
+  @include reset-button;
+  align-self: flex-start;
+  font-size: var(--text-11);
+  color: var(--text-secondary);
+
+  &:hover {
+    color: var(--accent-text);
+  }
+}
+
+/* ---------------------------- The library ---------------------------- */
+
+.library {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--glass-border);
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.groupName {
+  font-size: var(--text-11);
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.chip {
+  @include reset-button;
+  @include clickable-surface;
+  padding: 4px 10px;
+  font-size: var(--text-11);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+
+  &:hover {
+    border-color: var(--accent);
+    background: var(--glass-bg-hover);
+    transform: translateY(-1px);
+  }
+
+  &:focus-visible {
+    @include focus-ring;
+  }
+}

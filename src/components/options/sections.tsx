@@ -16,6 +16,7 @@ import {
   TextInput,
 } from '../primitives/Form';
 import { useCustomThemesStore } from '../../stores/customThemesStore';
+import { EffectsSection } from './EffectsSection';
 import { ThemePicker } from './ThemePicker';
 import sectionStyles from './sections.module.scss';
 
@@ -466,6 +467,9 @@ export const optionsSections: OptionsSection[] = [
   { id: 'cursor', label: 'Cursor', body: <CursorSection /> },
   { id: 'background', label: 'Background', body: <BackgroundSection /> },
   { id: 'animation', label: 'Animation', body: <AnimationSection /> },
+  // Wide: the stack editor plus a grouped library of 27 effects doesn't
+  // fit the 320px column the simple field sections use.
+  { id: 'effects', label: 'Effects', body: <EffectsSection />, wide: true },
   { id: 'output', label: 'Output', body: <OutputSection /> },
 ];
 
