@@ -56,16 +56,21 @@ interface ResolvedSection {
  */
 /**
  * Mobile-only page-grouping for the pill itself: rather than letting all
- * ten items overflow into a horizontally-scrolled strip (where the last
+ * eleven items overflow into a horizontally-scrolled strip (where the last
  * tab visibly clips off the right edge), we split them into pages of
- * 3/3/4 items and let the user swipe between pages. A dot indicator
+ * 4/4/3 items and let the user swipe between pages. A dot indicator
  * sits beneath the pill so the user knows which page they're on.
  * Pattern adapted from shellfied's Toolbar.
+ *
+ * This list is the whole mobile menu — a tab omitted here is unreachable
+ * on mobile, not merely reordered. Effects sits on page 1 rather than in
+ * its desktop slot after Animation: a tab on page 2+ is off-screen until
+ * the user thinks to swipe, which is indistinguishable from missing.
  */
 const MOBILE_PAGES: ReadonlyArray<ReadonlyArray<string>> = [
-  ['theme', 'style', 'type'],
-  ['frame', 'cursor', 'background'],
-  ['animation', 'output', 'presets', 'reset'],
+  ['theme', 'style', 'type', 'effects'],
+  ['frame', 'cursor', 'background', 'animation'],
+  ['output', 'presets', 'reset'],
 ];
 
 const useMobileSwipe = (pageCount: number) => {
@@ -315,7 +320,7 @@ export const OptionsMenu = () => {
         </div>
       )}
 
-      {/* Mobile pill: tabs split into pages of 3 / 3 / 4 items. Native
+      {/* Mobile pill: tabs split into pages of 4 / 4 / 3 items. Native
           scroll-snap handles the swipe; JS tracks which page is in view
           so the dot indicator stays in sync. */}
       {isMobile && (
