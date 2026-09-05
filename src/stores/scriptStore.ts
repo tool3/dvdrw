@@ -14,12 +14,13 @@ const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/
 // `;
 
 const MOBILE_SAMPLE = `
+
 # Intro Demo
 
-Set FontSize 60
+Set FontSize 20
 Set Template minimal
-Set Width 1200
-Set Height 800
+Set Width 500
+Set Height 400
 Set Theme {"name":"neon","background":"#0D0208","foreground":"#00ff9f","cursor":"#ff00ff","selection":"#264f78","black":"#1a1a2e","red":"#ff2e63","green":"#00ff9f","yellow":"#ffcc00","blue":"#00d4ff","magenta":"#ff00ff","cyan":"#00ffd5","white":"#e0e0e0","brightBlack":"#3a3a5e","brightRed":"#ff5c8a","brightGreen":"#50ffb8","brightYellow":"#ffdd33","brightBlue":"#33e5ff","brightMagenta":"#ff66ff","brightCyan":"#66ffe8","brightWhite":"#ffffff"}
 Set LoopStyle fade
 Set Watermark "tool3/dvd-cli"
@@ -27,7 +28,7 @@ Set Background #C9C7AF
 Set BackgroundPadding 50
 Set CursorStyle bar
 Set CursorColor black
-Set PromptPrefix "\x1b[38;5;206m\x1b[0m "
+Set PromptPrefix "[38;5;206m[0m "
 
 Type@100ms "Wake up, Neo..."
 Sleep 1s
@@ -48,6 +49,8 @@ Space
 Type "Knock, knock."
 
 Sleep 1s
+
+
 
 `
 

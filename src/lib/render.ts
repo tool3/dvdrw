@@ -725,6 +725,61 @@ const applyPlaybackSpeed = (
   }));
 };
 
+/**
+ * The virtual terminal's grid, in cells — the same derivation the dvd CLI
+ * uses in `createContext` (`executor/cd-executor.ts`), so a script renders
+ * here exactly as it does there.
+ *
+ * The grid must come from the window geometry. A grid *wider* than the
+ * window is drawn past the frame edge and clipped; a grid *shorter* than
+ * the window scrolls the terminal early, and scrolled-off rows are gone for
+ * good — the top of the output vanishes while the frame and the watermark,
+ * which are positioned from the edges, still look perfectly fine.
+ *
+ * Both halves of that were live here. The old code asked for
+ * `max(40, 800/charWidth)` columns and `max(8, 420/lineHeight)` rows: 420
+ * instead of the CLI's 600, no allowance for the header a non-minimal
+ * template puts above the content, and floors that stop tracking the window
+ * entirely once the font is large.
+ */
+/**
+ * Row budget when the height is left to auto-fit. Vertical scrolling only
+ * exists because a physical terminal has a fixed viewport; here the window
+ * grows to whatever the content needed, so scrolling is not "terminal-like
+ * behaviour", it is silent data loss. This is a backstop against a runaway
+ * program, set far above any real recording — pin `Set Height` to get an
+ * actual scrolling viewport back.
+ */
+const AUTOFIT_ROW_BUDGET = 200;
+
+const terminalGrid = (
+  options: RenderOptions,
+): { cols: number; rows: number } => {
+  const width = options.width || 800;
+  const charWidth = options.fontSize * CHAR_WIDTH_RATIO;
+  const lineHeightPx = options.fontSize * options.lineHeight;
+  const headerHeight = options.template === 'minimal' ? 0 : 40;
+
+  // Columns stay geometry-derived either way: wrapping at N columns is a
+  // real property of the output, and `computeDimensions` fits the window to
+  // whatever the widest line turned out to be.
+  const cols = Math.max(
+    1,
+    Math.floor((width - options.padding * 2) / charWidth),
+  );
+
+  const rows = options.height
+    ? Math.max(
+        1,
+        Math.floor(
+          (options.height - headerHeight - options.padding * 2) / lineHeightPx,
+        ),
+      )
+    : AUTOFIT_ROW_BUDGET;
+
+  return { cols, rows };
+};
+
 const computeDimensions = (
   frames: FrameData[],
   options: RenderOptions,
@@ -1103,11 +1158,8 @@ export const framesForInput = (
   const theme = resolveTheme(options.theme, customThemes);
   if (input.kind === 'script') {
     const script = parseCDScript(input.source);
-    const charWidth = options.fontSize * CHAR_WIDTH_RATIO;
-    const lineHeightPx = options.fontSize * options.lineHeight;
-    const termCols = Math.max(40, Math.floor(800 / charWidth));
-    const termRows = Math.max(8, Math.floor(420 / lineHeightPx));
-    const { frames } = interpret(script.commands, termCols, termRows, theme);
+    const { cols, rows } = terminalGrid(options);
+    const { frames } = interpret(script.commands, cols, rows, theme);
     return { frames, theme };
   }
   return { frames: prepareCastFrames(input.source, theme), theme };
@@ -1127,15 +1179,12 @@ export const renderScriptAsync = async (
 ): Promise<RenderOutput> => {
   const theme = resolveTheme(options.theme);
   const script = parseCDScript(source);
-  const charWidth = options.fontSize * CHAR_WIDTH_RATIO;
-  const lineHeightPx = options.fontSize * options.lineHeight;
-  const termCols = Math.max(40, Math.floor(800 / charWidth));
-  const termRows = Math.max(8, Math.floor(420 / lineHeightPx));
+  const { cols, rows } = terminalGrid(options);
 
   const { frames, notices } = await interpretAsync(
     script.commands,
-    termCols,
-    termRows,
+    cols,
+    rows,
     theme,
     executor,
     onProgress,
@@ -1154,12 +1203,9 @@ export const renderInput = (
 
   if (input.kind === 'script') {
     const script = parseCDScript(input.source);
-    const charWidth = options.fontSize * CHAR_WIDTH_RATIO;
-    const lineHeightPx = options.fontSize * options.lineHeight;
-    const termCols = Math.max(40, Math.floor(800 / charWidth));
-    const termRows = Math.max(8, Math.floor(420 / lineHeightPx));
+    const { cols, rows } = terminalGrid(options);
 
-    const { frames, notices } = interpret(script.commands, termCols, termRows, theme);
+    const { frames, notices } = interpret(script.commands, cols, rows, theme);
     const result = buildAnimation(frames, options, theme);
     return { ...result, notices, frames };
   }
