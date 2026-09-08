@@ -104,6 +104,7 @@ const SETTINGS: Entry[] = [
   { label: 'CursorColor', detail: '#hex' },
   { label: 'CursorBlink', detail: 'true | false' },
   { label: 'PromptPrefix', detail: '"❯ "', info: 'The prompt drawn before each typed line. Escapes like \\x1b[95m work.' },
+  { label: 'Seed', detail: '"line1\\nline2"', info: 'Text already on screen before the script runs, so the recording opens mid-session. Escapes like \\n and \\x1b[32m work.' },
 
   // Header / footer
   { label: 'HeaderHeight', detail: 'px' },

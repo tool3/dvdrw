@@ -23,6 +23,7 @@ import {
   parseCastFile,
   planVideo,
   processInput,
+  resolveSeedLines,
   splitIntoFrames,
   themes as builtinThemes,
 } from 'dvdrw';
@@ -406,6 +407,32 @@ const resolvePromptPrefix = (commands: CDCommand[]): string => {
 };
 
 /**
+ * Pre-fill the terminal with `Set Seed` content before the script runs, so a
+ * recording can open mid-session instead of on an empty screen.
+ *
+ * Both interpreters here are the app's own — the lib's `seedBuffer` never
+ * runs in the browser — so without this the directive parses fine and is then
+ * silently dropped by the no-op `Set` case. Line splitting goes through the
+ * lib's `resolveSeedLines` so multi-line seeds and a trailing newline behave
+ * exactly as they do in dvd-cli.
+ */
+const applySeed = (ctx: InterpreterContext, commands: CDCommand[]): void => {
+  const value = commands.reduce<string | null>(
+    (acc, cmd) =>
+      cmd.type === 'Set' && cmd.setting === 'Seed' ? cmd.value : acc,
+    null,
+  );
+  if (value === null) return;
+
+  const lines = resolveSeedLines(parseEscapes(value));
+  if (lines.length === 0) return;
+
+  // CRLF, not LF: `processInput` treats a bare \n as a line feed that keeps
+  // the column, which would stair-step each seeded line.
+  ctx.state = processInput(ctx.state, lines.join('\r\n') + '\r\n');
+};
+
+/**
  * Async sibling of `interpret` — same state machine, but a Type+Enter
  * sequence actually runs the typed command through the supplied
  * `ShellExecutor` and writes the captured stdout into the terminal grid.
@@ -428,6 +455,7 @@ export const interpretAsync = async (
     time: 0,
     cursorVisible: initialCursorVisible,
   };
+  applySeed(ctx, commands);
   captureFrame(ctx);
 
   const notices: string[] = [];
@@ -584,6 +612,8 @@ const interpret = (
     time: 0,
     cursorVisible: true,
   };
+
+  applySeed(ctx, commands);
 
   // Initial frame so the preview is never empty.
   captureFrame(ctx);
