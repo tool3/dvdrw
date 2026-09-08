@@ -204,7 +204,9 @@ export const SvgPreview = ({
             <Button
               size="sm"
               variant="secondary"
-              iconLeft={<FilmIcon />}
+              // See Runner: the label is hidden on mobile, so the spinner in
+              // the icon slot is the only in-flight signal there.
+              iconLeft={exporting ? <Spinner size={14} /> : <FilmIcon />}
               disabled={!canExportVideo || exporting}
               onClick={exportMp4}
               aria-label={exporting ? 'Encoding MP4' : 'Download MP4'}

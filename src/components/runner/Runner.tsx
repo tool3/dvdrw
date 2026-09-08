@@ -508,7 +508,10 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
             <Button
               size="sm"
               variant="secondary"
-              iconLeft={<FilmIcon />}
+              // `mobileIconOnly` hides the label below 720px, so the
+              // "Encoding 42%" text is invisible on exactly the devices
+              // where the encode is slowest. The icon has to carry it.
+              iconLeft={exporting ? <Spinner size={14} /> : <FilmIcon />}
               disabled={!frames || exporting}
               onClick={exportMp4}
               title={
