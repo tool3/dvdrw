@@ -15,13 +15,13 @@
     "@codemirror/state": "^6.4.1",
     "@codemirror/view": "^6.34.1",
     "@lezer/highlight": "^1.2.1",
-    "vctrfx": "^0.6.0",
     "@webcontainer/api": "^1.6.4",
     "codemirror": "^6.0.1",
     "dvdrw": "^1.4.1",
     "mp4-muxer": "^5.2.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "vctrfx": "^0.8.0",
     "zustand": "^5.0.1"
   },
   "devDependencies": {
