@@ -15,6 +15,17 @@ import {
   Switch,
   TextInput,
 } from '../primitives/Form';
+import { ColorPicker } from '../primitives/ColorPicker';
+import {
+  parseBackgroundValue,
+  serializeBackgroundValue,
+  withColorAt,
+  withDirection,
+  withKind,
+  type BackgroundDirection,
+  type BackgroundKind,
+  type BackgroundValue,
+} from '../../lib/background';
 import { useCustomThemesStore } from '../../stores/customThemesStore';
 import { EffectsSection } from './EffectsSection';
 import { ThemePicker } from './ThemePicker';
@@ -215,21 +226,154 @@ const CursorSection = () => {
   );
 };
 
+/* Arrows point along the gradient's forward run; the button rotates 180°
+   when the direction is reversed, so the icon always shows the real flow. */
+const ArrowRightIcon = () => (
+  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M2.5 8h11M9.5 4l4 4-4 4" />
+  </svg>
+);
+const ArrowDownIcon = () => (
+  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M8 2.5v11M4 9.5l4 4 4-4" />
+  </svg>
+);
+const ArrowDiagonalIcon = () => (
+  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M3 3l10 10M13 7.5V13H7.5" />
+  </svg>
+);
+
+const DIRECTIONS: Array<{
+  value: BackgroundDirection;
+  label: string;
+  reversedLabel: string;
+  Icon: () => ReactNode;
+}> = [
+  { value: 'horizontal', label: 'Left to right', reversedLabel: 'Right to left', Icon: ArrowRightIcon },
+  { value: 'vertical', label: 'Top to bottom', reversedLabel: 'Bottom to top', Icon: ArrowDownIcon },
+  { value: 'diagonal', label: 'Top-left to bottom-right', reversedLabel: 'Bottom-right to top-left', Icon: ArrowDiagonalIcon },
+];
+
+const GRADIENT_PRESETS: Array<[string, string]> = [
+  ['#0a0a0f', '#1a1330'],
+  ['#ff7a59', '#7c2bff'],
+  ['#1a3a5c', '#0f4d6e'],
+  ['#2b1055', '#ff2e97'],
+  ['#f3eee2', '#e8e1cf'],
+  ['#3a2c1c', '#17110a'],
+];
+
+const previewCss = (value: BackgroundValue): string => {
+  const stops = value.reverse ? [...value.colors].reverse() : value.colors;
+  if (value.kind === 'solid') return stops[0];
+  const angle =
+    value.direction === 'horizontal' ? '90deg'
+    : value.direction === 'diagonal' ? '135deg'
+    : '180deg';
+  return `linear-gradient(${angle}, ${stops.join(', ')})`;
+};
+
 const BackgroundSection = () => {
   const options = useOptionsStore((s) => s.options);
   const set = useOptionsStore((s) => s.set);
+  const value = parseBackgroundValue(options.background);
+  const apply = (next: BackgroundValue) =>
+    set('background', serializeBackgroundValue(next));
+
   return (
     <>
-      <Field
-        label="Fill"
-        hint='Solid hex (e.g. "#161618") or gradient(#a, #b:vertical|horizontal|diagonal)'
-      >
-        <TextInput
-          value={options.background ?? ''}
-          onChange={(v) => set('background', v || undefined)}
-          placeholder="(none)"
+      <Field label="Fill">
+        <SegmentedControl<BackgroundKind>
+          value={value.kind}
+          onChange={(kind) => apply(withKind(value, kind))}
+          options={[
+            { label: 'None', value: 'none' },
+            { label: 'Solid', value: 'solid' },
+            { label: 'Gradient', value: 'gradient' },
+          ]}
         />
       </Field>
+
+      {value.kind !== 'none' && (
+        <div
+          className={sectionStyles.bgPreview}
+          style={{ background: previewCss(value) }}
+          aria-hidden
+        />
+      )}
+
+      {value.kind === 'solid' && (
+        <Field label="Color" layout="inline">
+          <ColorPicker
+            value={value.colors[0]}
+            onChange={(hex) => apply(withColorAt(value, 0, hex))}
+            ariaLabel="Background color"
+          />
+        </Field>
+      )}
+
+      {value.kind === 'gradient' && (
+        <>
+          <div className={sectionStyles.gradientPresets}>
+            {GRADIENT_PRESETS.map(([from, to]) => (
+              <button
+                key={`${from}${to}`}
+                type="button"
+                className={sectionStyles.gradientPreset}
+                style={{ background: `linear-gradient(135deg, ${from}, ${to})` }}
+                onClick={() => apply({ ...value, colors: [from, to] })}
+                title={`${from} → ${to}`}
+                aria-label={`Gradient ${from} to ${to}`}
+              />
+            ))}
+          </div>
+
+          {/* One picker per stop: the vaporwave preset ships three, and a
+              fixed pair of pickers would silently drop the third. */}
+          {value.colors.map((color, i) => (
+            <Field
+              key={i}
+              label={i === 0 ? 'From' : i === value.colors.length - 1 ? 'To' : `Stop ${i + 1}`}
+              layout="inline"
+            >
+              <ColorPicker
+                value={color}
+                onChange={(hex) => apply(withColorAt(value, i, hex))}
+                ariaLabel={`Gradient stop ${i + 1}`}
+              />
+            </Field>
+          ))}
+
+          <Field label="Direction" hint="Click the active direction to reverse it.">
+            <div className={sectionStyles.directionButtons}>
+              {DIRECTIONS.map(({ value: dir, label, reversedLabel, Icon }) => {
+                const active = value.direction === dir;
+                const reversed = active && value.reverse;
+                return (
+                  <button
+                    key={dir}
+                    type="button"
+                    className={[
+                      sectionStyles.directionButton,
+                      active ? sectionStyles.directionButtonActive : '',
+                      reversed ? sectionStyles.directionButtonReversed : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                    onClick={() => apply(withDirection(value, dir))}
+                    title={reversed ? reversedLabel : label}
+                    aria-label={reversed ? reversedLabel : label}
+                    aria-pressed={active}
+                  >
+                    <Icon />
+                  </button>
+                );
+              })}
+            </div>
+          </Field>
+        </>
+      )}
       <Field label="Padding">
         <NumberInput
           value={options.backgroundPadding}

@@ -36,12 +36,33 @@ import {
 import type { RenderOptions } from '../stores/optionsStore';
 import type { CustomTheme } from '../stores/customThemesStore';
 
-interface WorkerRequest {
-  id: number;
-  input: RenderInput;
-  options: RenderOptions;
-  customThemes: CustomTheme[];
-}
+/**
+ * Three request kinds:
+ *   render  — the original all-in-one path (cast, or a script with no
+ *             pre-computed frames).
+ *   frames  — hand the worker a set of frames produced elsewhere (the
+ *             container run, which can only happen on the main thread)
+ *             and keep them under `token`.
+ *   reemit  — re-render those frames with new options. This is the whole
+ *             point: a visual option change is an SVG re-emit (~1ms), not
+ *             a re-execution of the user's shell commands.
+ */
+type WorkerRequest =
+  | {
+      id: number;
+      kind?: 'render';
+      input: RenderInput;
+      options: RenderOptions;
+      customThemes: CustomTheme[];
+    }
+  | { id: number; kind: 'frames'; token: string; frames: FrameData[] }
+  | {
+      id: number;
+      kind: 'reemit';
+      token: string;
+      options: RenderOptions;
+      customThemes: CustomTheme[];
+    };
 
 interface WorkerSuccess {
   id: number;
@@ -62,6 +83,10 @@ interface WorkerFailure {
 
 export type WorkerResponse = WorkerSuccess | WorkerFailure;
 
+// Frames handed over by the main thread, kept so a `reemit` costs one
+// `buildAnimation` and nothing else.
+let handedFrames: { token: string; frames: FrameData[] } | null = null;
+
 let snapshotCache: { source: string; snapshots: GridSnapshot[] } | null = null;
 let frameCache: {
   source: string;
@@ -70,8 +95,34 @@ let frameCache: {
 } | null = null;
 
 self.addEventListener('message', (event: MessageEvent<WorkerRequest>) => {
-  const { id, input, options, customThemes } = event.data;
+  const request = event.data;
+  const { id } = request;
   try {
+    if (request.kind === 'frames') {
+      handedFrames = { token: request.token, frames: request.frames };
+      return;
+    }
+
+    if (request.kind === 'reemit') {
+      if (!handedFrames || handedFrames.token !== request.token) {
+        throw new Error('No frames held for this render.');
+      }
+      const theme = resolveTheme(request.options.theme, request.customThemes);
+      const result = buildAnimation(handedFrames.frames, request.options, theme);
+      (self as unknown as Worker).postMessage({
+        id,
+        ok: true,
+        svg: result.svg,
+        width: result.width,
+        height: result.height,
+        frameCount: result.frameCount,
+        durationMs: result.durationMs,
+        notices: [],
+      } satisfies WorkerSuccess);
+      return;
+    }
+
+    const { input, options, customThemes } = request;
     if (input.kind === 'cast') {
       const themeKey = options.theme;
       const theme = resolveTheme(themeKey, customThemes);

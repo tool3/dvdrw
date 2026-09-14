@@ -7,6 +7,8 @@ import {
 } from 'react';
 import styles from './CastDropZone.module.scss';
 import { Button } from '../primitives/Button';
+import { ExamplePicker } from '../primitives/ExamplePicker';
+import { CAST_EXAMPLES } from '../../lib/examples';
 
 interface CastDropZoneProps {
   filename: string | null;
@@ -226,6 +228,20 @@ export const CastDropZone = ({ filename, onFile, onClear }: CastDropZoneProps) =
 
           <div className={styles.divider}>
             <span>or paste a URL</span>
+          </div>
+
+          <div className={styles.examples}>
+            <ExamplePicker
+              items={CAST_EXAMPLES}
+              onPick={(id) => {
+                const example = CAST_EXAMPLES.find((e) => e.id === id);
+                // Fills the field rather than fetching: the URL stays
+                // visible and editable, which is the point of a demo.
+                if (example) setUrl(example.url);
+              }}
+              label="Try an example"
+              title="Fill the field with a sample cast URL"
+            />
           </div>
 
           <form className={styles.urlForm} onSubmit={handleUrlSubmit}>

@@ -39,7 +39,7 @@ import type {
   VideoPlan,
   VideoQuality,
 } from 'dvdrw';
-import { svgfx } from '@svgfx/postprocessing';
+import { vctrfx } from 'vctrfx';
 import { buildEffects, type EffectConfig } from './effects';
 import type { RenderOptions } from '../stores/optionsStore';
 import { useCustomThemesStore, type CustomTheme } from '../stores/customThemesStore';
@@ -97,9 +97,9 @@ const applyEffects = (
   const effects = buildEffects(stack);
   if (!effects.length) return svg;
   try {
-    return svgfx(svg, effects, { animate: settings.animate ?? true });
+    return vctrfx(svg, effects, { animate: settings.animate ?? true });
   } catch (err) {
-    console.error('svgfx: effect stack failed, falling back to the plain SVG', err);
+    console.error('vctrfx: effect stack failed, falling back to the plain SVG', err);
     return svg;
   }
 };
@@ -773,14 +773,20 @@ const applyPlaybackSpeed = (
  * entirely once the font is large.
  */
 /**
- * Row budget when the height is left to auto-fit. Vertical scrolling only
- * exists because a physical terminal has a fixed viewport; here the window
- * grows to whatever the content needed, so scrolling is not "terminal-like
- * behaviour", it is silent data loss. This is a backstop against a runaway
- * program, set far above any real recording — pin `Set Height` to get an
- * actual scrolling viewport back.
+ * Row budget when the height is left to auto-fit.
+ *
+ * Vertical scrolling only exists because a physical terminal has a fixed
+ * viewport; here the window grows to whatever the content needed, so
+ * scrolling is silent data loss rather than terminal-like behaviour. The
+ * budget is what stops a runaway program from being unbounded.
+ *
+ * It is not free, though: the grid is allocated up front and every frame
+ * is coalesced across all of it, so interpretation cost is linear in this
+ * number (measured ~6ms/row for a 51-frame script). 200 cost 1.2s; 64
+ * covers the tall-chart cases that motivated the budget at ~0.4s. Pin
+ * `Set Height` for an exact viewport — that path is cheaper still.
  */
-const AUTOFIT_ROW_BUDGET = 200;
+const AUTOFIT_ROW_BUDGET = 64;
 
 const terminalGrid = (
   options: RenderOptions,
@@ -1059,7 +1065,7 @@ export const buildAnimation = (
   }
 
   // Post-processing runs last, after optimisation on purpose: the
-  // optimiser doesn't know about the filter chains and `<defs>` svgfx
+  // optimiser doesn't know about the filter chains and `<defs>` vctrfx
   // injects, and running it over them risks pruning something it reads as
   // unused. Effects are also additive to the root, so the frame layers and
   // their `<animate>` elements pass through untouched — verified: the
@@ -1141,7 +1147,7 @@ const withEffects = (
       let last = '';
       for (const frame of plan.frames()) {
         // Repeated frames are byte-identical, so post-process once and
-        // reuse — this is the difference between one svgfx pass per
+        // reuse — this is the difference between one vctrfx pass per
         // visible change and one per output frame.
         if (!frame.repeatsPrevious) last = decorate(frame.svg);
         yield { ...frame, svg: last };

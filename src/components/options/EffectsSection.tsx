@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type DragEvent, type ReactNode } from 'react';
 import {
   EFFECTS,
   EFFECT_GROUPS,
@@ -9,6 +9,8 @@ import {
   groupStack,
   isTuned,
   newEffectUid,
+  reorderInGroup,
+  reorderRuns,
   resolveParams,
   type Control,
   type ControlValue,
@@ -33,14 +35,14 @@ import styles from './EffectsSection.module.scss';
  * the underlying stack stays flat and so cannot render differently.
  */
 
-const UpIcon = () => (
+const GripIcon = () => (
   <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden>
-    <path d="M2 6.5L5 3.5l3 3" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-const DownIcon = () => (
-  <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden>
-    <path d="M2 3.5L5 6.5l3-3" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    <circle cx="3.5" cy="2" r="0.9" fill="currentColor" />
+    <circle cx="6.5" cy="2" r="0.9" fill="currentColor" />
+    <circle cx="3.5" cy="5" r="0.9" fill="currentColor" />
+    <circle cx="6.5" cy="5" r="0.9" fill="currentColor" />
+    <circle cx="3.5" cy="8" r="0.9" fill="currentColor" />
+    <circle cx="6.5" cy="8" r="0.9" fill="currentColor" />
   </svg>
 );
 const RemoveIcon = () => (
@@ -116,8 +118,105 @@ const EffectControl = ({
   }
 };
 
+interface DragState {
+  list: string;
+  from: number;
+  over: number;
+}
+
+interface DragList {
+  itemProps: (list: string, index: number) => {
+    onDragStart: (e: DragEvent<HTMLElement>) => void;
+    onDragOver: (e: DragEvent<HTMLElement>) => void;
+    onDrop: (e: DragEvent<HTMLElement>) => void;
+    onDragEnd: () => void;
+  };
+  isDragging: (list: string, index: number) => boolean;
+  isOver: (list: string, index: number) => boolean;
+}
+
 /**
- * One effect in the stack: enable switch, expandable name, reorder and
+ * Drag-to-reorder across every list in the editor at once, each identified
+ * by a `list` key — 'root' for the top level, the Look's uid for its
+ * children. One hook rather than one per list because a Look's child list
+ * only exists while it is expanded, and hooks can't be created per item.
+ *
+ * Drops are refused across lists on purpose: dragging an effect out of a
+ * Look would break the contiguity `groupStack` relies on to rebuild the
+ * container, so a Look moves as a whole from its own row instead.
+ */
+const useDragLists = (
+  onReorder: (list: string, from: number, to: number) => void,
+): DragList => {
+  const [state, setState] = useState<DragState | null>(null);
+
+  return {
+    itemProps: (list, index) => ({
+      onDragStart: (e) => {
+        // dragstart bubbles, and a Look's children sit inside the Look's own
+        // draggable row — without this the ancestor overwrites the child's
+        // drag state and every nested drag is read as moving the whole Look.
+        e.stopPropagation();
+        e.dataTransfer.effectAllowed = 'move';
+        // Firefox refuses to start a drag without payload on the transfer.
+        e.dataTransfer.setData('text/plain', String(index));
+        setState({ list, from: index, over: index });
+      },
+      onDragOver: (e) => {
+        // A mismatched list falls through to the ancestor on purpose: that
+        // is how hovering a Look's child while dragging a top-level run
+        // targets the Look itself.
+        if (!state || state.list !== list) return;
+        e.stopPropagation();
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        if (state.over !== index) setState({ ...state, over: index });
+      },
+      onDrop: (e) => {
+        if (!state || state.list !== list) return;
+        e.preventDefault();
+        e.stopPropagation();
+        if (state.from !== index) onReorder(list, state.from, index);
+        setState(null);
+      },
+      onDragEnd: () => setState(null),
+    }),
+    isDragging: (list, index) =>
+      state?.list === list && state.from === index,
+    isOver: (list, index) =>
+      state?.list === list && state.over === index && state.from !== index,
+  };
+};
+
+/**
+ * The grip. `draggable` sits on the row, not here, so the drag image is the
+ * whole row — but it is only armed while the pointer is down on the grip,
+ * otherwise dragging a slider inside an expanded row would drag the row.
+ */
+const DragHandle = ({
+  label,
+  onArm,
+  onDisarm,
+}: {
+  label: string;
+  onArm: () => void;
+  onDisarm: () => void;
+}) => (
+  <span
+    className={styles.dragHandle}
+    onPointerDown={onArm}
+    onPointerUp={onDisarm}
+    role="button"
+    tabIndex={-1}
+    aria-label={`Drag to reorder ${label}`}
+    title="Drag to reorder"
+  >
+    <GripIcon />
+  </span>
+);
+
+/**
+ * One effect in the stack: enable switch, expandable name, drag handle and
  * remove, plus its parameters when open. Used both at top level and
  * nested inside a Look, which is the only reason `nested` exists.
  */
@@ -126,9 +225,9 @@ const EffectRow = ({
   nested = false,
   open,
   onToggleOpen,
-  canMoveUp,
-  canMoveDown,
-  onMove,
+  drag,
+  dragList,
+  dragIndex,
   onEnabled,
   onRemove,
   onParam,
@@ -138,14 +237,15 @@ const EffectRow = ({
   nested?: boolean;
   open: boolean;
   onToggleOpen: () => void;
-  canMoveUp: boolean;
-  canMoveDown: boolean;
-  onMove: (delta: number) => void;
+  drag: DragList;
+  dragList: string;
+  dragIndex: number;
   onEnabled: (value: boolean) => void;
   onRemove: () => void;
   onParam: (key: string, value: ControlValue) => void;
   onReset: () => void;
 }) => {
+  const [armed, setArmed] = useState(false);
   const descriptor = findEffect(entry.id);
   if (!descriptor) return null;
   const params = resolveParams(descriptor, entry.params);
@@ -154,8 +254,28 @@ const EffectRow = ({
   const inLook = !!entry.group;
 
   return (
-    <li className={[styles.row, nested ? styles.rowNested : ''].filter(Boolean).join(' ')}>
+    <li
+      className={[
+        styles.row,
+        nested ? styles.rowNested : '',
+        drag.isDragging(dragList, dragIndex) ? styles.rowDragging : '',
+        drag.isOver(dragList, dragIndex) ? styles.rowDropTarget : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      draggable={armed}
+      {...drag.itemProps(dragList, dragIndex)}
+      onDragEnd={() => {
+        setArmed(false);
+        drag.itemProps(dragList, dragIndex).onDragEnd();
+      }}
+    >
       <div className={styles.rowHead}>
+        <DragHandle
+          label={descriptor.label}
+          onArm={() => setArmed(true)}
+          onDisarm={() => setArmed(false)}
+        />
         <Switch
           checked={entry.enabled}
           onChange={onEnabled}
@@ -180,26 +300,6 @@ const EffectRow = ({
           )}
         </button>
         <div className={styles.rowActions}>
-          <button
-            type="button"
-            className={styles.iconBtn}
-            onClick={() => onMove(-1)}
-            disabled={!canMoveUp}
-            aria-label={`Move ${descriptor.label} earlier`}
-            title="Move earlier"
-          >
-            <UpIcon />
-          </button>
-          <button
-            type="button"
-            className={styles.iconBtn}
-            onClick={() => onMove(1)}
-            disabled={!canMoveDown}
-            aria-label={`Move ${descriptor.label} later`}
-            title="Move later"
-          >
-            <DownIcon />
-          </button>
           <button
             type="button"
             className={[styles.iconBtn, styles.iconBtnDanger].join(' ')}
@@ -230,6 +330,87 @@ const EffectRow = ({
           )}
         </div>
       )}
+    </li>
+  );
+};
+
+/** A Look's container row. Drags as one unit at the top level. */
+const LookRow = ({
+  label,
+  count,
+  enabled,
+  open,
+  onToggleOpen,
+  onEnabled,
+  onRemove,
+  drag,
+  dragIndex,
+  children,
+}: {
+  label: string;
+  count: number;
+  enabled: boolean;
+  open: boolean;
+  onToggleOpen: () => void;
+  onEnabled: (value: boolean) => void;
+  onRemove: () => void;
+  drag: DragList;
+  dragIndex: number;
+  children: ReactNode;
+}) => {
+  const [armed, setArmed] = useState(false);
+
+  return (
+    <li
+      className={[
+        styles.group,
+        drag.isDragging('root', dragIndex) ? styles.rowDragging : '',
+        drag.isOver('root', dragIndex) ? styles.rowDropTarget : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      draggable={armed}
+      {...drag.itemProps('root', dragIndex)}
+      onDragEnd={() => {
+        setArmed(false);
+        drag.itemProps('root', dragIndex).onDragEnd();
+      }}
+    >
+      <div className={styles.groupHead}>
+        <DragHandle
+          label={label}
+          onArm={() => setArmed(true)}
+          onDisarm={() => setArmed(false)}
+        />
+        <Switch checked={enabled} onChange={onEnabled} ariaLabel={`${label} enabled`} />
+        <button
+          type="button"
+          className={[styles.rowName, open ? styles.rowNameOpen : '']
+            .filter(Boolean)
+            .join(' ')}
+          onClick={onToggleOpen}
+          aria-expanded={open}
+        >
+          <span className={styles.groupChevron} aria-hidden>
+            {open ? '▾' : '▸'}
+          </span>
+          <span className={styles.rowLabel}>{label}</span>
+          <span className={styles.rowMeta}>Look · {count} effects</span>
+        </button>
+        <div className={styles.rowActions}>
+          <button
+            type="button"
+            className={[styles.iconBtn, styles.iconBtnDanger].join(' ')}
+            onClick={onRemove}
+            aria-label={`Remove ${label}`}
+            title="Remove Look"
+          >
+            <RemoveIcon />
+          </button>
+        </div>
+      </div>
+
+      {open && <ul className={styles.groupChildren}>{children}</ul>}
     </li>
   );
 };
@@ -275,41 +456,15 @@ export const EffectsSection = () => {
 
   const remove = (uid: string) => write(stack.filter((e) => e.uid !== uid));
 
-  const move = (uid: string, delta: number) => {
-    const index = stack.findIndex((e) => e.uid === uid);
-    const target = index + delta;
-    if (index < 0 || target < 0 || target >= stack.length) return;
-    const next = [...stack];
-    [next[index], next[target]] = [next[target], next[index]];
-    write(next);
-  };
-
-  /** Reorder a whole Look, keeping its members contiguous. */
-  const moveGroup = (groupUid: string, delta: number) => {
-    const members = stack.filter((e) => e.group?.uid === groupUid);
-    if (members.length === 0) return;
-    const rest = stack.filter((e) => e.group?.uid !== groupUid);
-    const firstIndex = stack.findIndex((e) => e.group?.uid === groupUid);
-    // Insertion point is expressed against the stack minus this group, so
-    // stepping past a neighbouring group jumps the whole block rather than
-    // burrowing into it.
-    const runsBefore = groupStack(rest);
-    const at = runsBefore.findIndex((run) =>
-      run.kind === 'group'
-        ? run.start >= firstIndex
-        : run.index >= firstIndex,
-    );
-    const position = at === -1 ? runsBefore.length : at;
-    const target = Math.max(0, Math.min(runsBefore.length, position + delta));
-    if (target === position) return;
-    const flat: EffectConfig[] = [];
-    runsBefore.forEach((run, i) => {
-      if (i === target) flat.push(...members);
-      flat.push(...(run.kind === 'group' ? run.entries : [run.entry]));
-    });
-    if (target >= runsBefore.length) flat.push(...members);
-    write(flat);
-  };
+  // 'root' reorders top-level runs (a lone effect, or a whole Look);
+  // any other key is a Look's uid and reorders inside that Look.
+  const drag = useDragLists((list, from, to) =>
+    write(
+      list === 'root'
+        ? reorderRuns(stack, from, to)
+        : reorderInGroup(stack, list, from, to),
+    ),
+  );
 
   const setGroupEnabled = (groupUid: string, enabled: boolean) =>
     write(
@@ -348,7 +503,7 @@ export const EffectsSection = () => {
           </p>
         ) : (
           <ul className={styles.rows}>
-            {groupStack(stack).map((run) =>
+            {groupStack(stack).map((run, runIndex) =>
               run.kind === 'effect' ? (
                 <EffectRow
                   key={run.entry.uid}
@@ -357,100 +512,48 @@ export const EffectsSection = () => {
                   onToggleOpen={() =>
                     setOpenUid(openUid === run.entry.uid ? null : run.entry.uid)
                   }
-                  canMoveUp={run.index > 0}
-                  canMoveDown={run.index < stack.length - 1}
-                  onMove={(d) => move(run.entry.uid, d)}
+                  drag={drag}
+                  dragList="root"
+                  dragIndex={runIndex}
                   onEnabled={(v) => update(run.entry.uid, { enabled: v })}
                   onRemove={() => remove(run.entry.uid)}
                   onParam={(k, v) => setParam(run.entry, k, v)}
                   onReset={() => resetParams(run.entry)}
                 />
               ) : (
-                <li key={run.uid} className={styles.group}>
-                  <div className={styles.groupHead}>
-                    <Switch
-                      checked={run.entries.some((e) => e.enabled)}
-                      onChange={(v) => setGroupEnabled(run.uid, v)}
-                      ariaLabel={`${run.label} enabled`}
-                    />
-                    <button
-                      type="button"
-                      className={[
-                        styles.rowName,
-                        openGroup === run.uid ? styles.rowNameOpen : '',
-                      ]
-                        .filter(Boolean)
-                        .join(' ')}
-                      onClick={() =>
-                        setOpenGroup(openGroup === run.uid ? null : run.uid)
+                <LookRow
+                  key={run.uid}
+                  label={run.label}
+                  count={run.entries.length}
+                  enabled={run.entries.some((e) => e.enabled)}
+                  open={openGroup === run.uid}
+                  onToggleOpen={() =>
+                    setOpenGroup(openGroup === run.uid ? null : run.uid)
+                  }
+                  onEnabled={(v) => setGroupEnabled(run.uid, v)}
+                  onRemove={() => removeGroup(run.uid)}
+                  drag={drag}
+                  dragIndex={runIndex}
+                >
+                  {run.entries.map((entry, childIndex) => (
+                    <EffectRow
+                      key={entry.uid}
+                      entry={entry}
+                      nested
+                      open={openUid === entry.uid}
+                      onToggleOpen={() =>
+                        setOpenUid(openUid === entry.uid ? null : entry.uid)
                       }
-                      aria-expanded={openGroup === run.uid}
-                    >
-                      <span className={styles.groupChevron} aria-hidden>
-                        {openGroup === run.uid ? '▾' : '▸'}
-                      </span>
-                      <span className={styles.rowLabel}>{run.label}</span>
-                      <span className={styles.rowMeta}>
-                        Look · {run.entries.length} effects
-                      </span>
-                    </button>
-                    <div className={styles.rowActions}>
-                      <button
-                        type="button"
-                        className={styles.iconBtn}
-                        onClick={() => moveGroup(run.uid, -1)}
-                        aria-label={`Move ${run.label} earlier`}
-                        title="Move earlier"
-                      >
-                        <UpIcon />
-                      </button>
-                      <button
-                        type="button"
-                        className={styles.iconBtn}
-                        onClick={() => moveGroup(run.uid, 1)}
-                        aria-label={`Move ${run.label} later`}
-                        title="Move later"
-                      >
-                        <DownIcon />
-                      </button>
-                      <button
-                        type="button"
-                        className={[styles.iconBtn, styles.iconBtnDanger].join(' ')}
-                        onClick={() => removeGroup(run.uid)}
-                        aria-label={`Remove ${run.label}`}
-                        title="Remove Look"
-                      >
-                        <RemoveIcon />
-                      </button>
-                    </div>
-                  </div>
-
-                  {openGroup === run.uid && (
-                    <ul className={styles.groupChildren}>
-                      {run.entries.map((entry) => {
-                        const index = stack.indexOf(entry);
-                        return (
-                          <EffectRow
-                            key={entry.uid}
-                            entry={entry}
-                            nested
-                            open={openUid === entry.uid}
-                            onToggleOpen={() =>
-                              setOpenUid(openUid === entry.uid ? null : entry.uid)
-                            }
-                            canMoveUp={index > run.start}
-                            canMoveDown={index < run.start + run.entries.length - 1}
-                            onMove={(d) => move(entry.uid, d)}
-                            onEnabled={(v) => update(entry.uid, { enabled: v })}
-                            onRemove={() => remove(entry.uid)}
-                            onParam={(k, v) => setParam(entry, k, v)}
-                            onReset={() => resetParams(entry)}
-                          />
-                        );
-                      })}
-                    </ul>
-                  )}
-                </li>
+                      drag={drag}
+                      dragList={run.uid}
+                      dragIndex={childIndex}
+                      onEnabled={(v) => update(entry.uid, { enabled: v })}
+                      onRemove={() => remove(entry.uid)}
+                      onParam={(k, v) => setParam(entry, k, v)}
+                      onReset={() => resetParams(entry)}
+                    />
+                  ))}
+                </LookRow>
               ),
             )}
           </ul>

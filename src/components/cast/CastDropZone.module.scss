@@ -280,3 +280,9 @@
     cursor: not-allowed;
   }
 }
+
+.examples {
+  display: flex;
+  justify-content: center;
+  margin-top: calc(-1 * var(--space-1));
+}

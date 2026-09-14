@@ -11,6 +11,7 @@ import {
   type RunnerStage,
 } from '../../lib/webcontainer';
 import { useOptionsStore, type RenderOptions } from '../../stores/optionsStore';
+import { useFrameRender } from '../../lib/useFrameRender';
 import { useAppStore } from '../../stores/appStore';
 import { Button } from '../primitives/Button';
 import { Select, TextInput } from '../primitives/Form';
@@ -121,6 +122,15 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
   const bufferRef = useRef<TerminalBuffer>(new TerminalBuffer());
   const [logTick, setLogTick] = useState(0);
   const [svg, setSvg] = useState<string | null>(null);
+
+  // Visual option changes re-emit the last run's frames instead of
+  // re-running the container. See `useFrameRender`.
+  const { publish, reemit, hasFrames } = useFrameRender(
+    useCallback((result) => {
+      setSvg(result.svg);
+      setDurationMs(result.durationMs);
+    }, []),
+  );
   const [durationMs, setDurationMs] = useState<number>(0);
   const [frames, setFrames] = useState<FrameData[] | null>(null);
   const [exporting, setExporting] = useState(false);
@@ -258,6 +268,7 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
       setSvg(result.svg);
       setDurationMs(result.durationMs ?? 0);
       setFrames(result.frames ?? null);
+      if (result.frames) publish(result.frames);
       if (!hasRunOnceRef.current) setHasRunOnce(true);
     } catch {
       // stage already updated to 'error' inside runScript
@@ -269,7 +280,7 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
         setTimeout(() => runFnRef.current(), 0);
       }
     }
-  }, [supported, running, appendLog, handleStage, resetLog]);
+  }, [supported, running, appendLog, handleStage, resetLog, publish]);
 
   runFnRef.current = performRun;
 
@@ -303,7 +314,18 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
         debounceRef.current = null;
       }
     };
-  }, [source, options, supported]);
+  }, [source, supported]);
+
+  // Options are deliberately NOT a dependency of the auto-run above. A
+  // visual change — background, theme, padding, effects — cannot alter
+  // what the shell printed, so re-running the container for one was
+  // re-executing the user's commands to redraw the same frames. Re-emit
+  // instead: same pixels, no container, and it happens in a worker so the
+  // main thread keeps painting.
+  useEffect(() => {
+    if (!hasFrames()) return;
+    reemit(options);
+  }, [options, reemit, hasFrames]);
 
   // Switching to Manual mid-debounce should also clear the queued indicator.
   useEffect(() => {

@@ -66,7 +66,7 @@ export interface RenderOptions {
   customGlyphs: boolean;
   /**
    * Post-processing stack applied to the finished SVG via
-   * `@svgfx/postprocessing`. Lives on RenderOptions so it reaches the
+   * `vctrfx`. Lives on RenderOptions so it reaches the
    * worker and the container runner through the same channel every other
    * option does, and so an edit triggers the usual auto-rerender. It has
    * no `.cd` equivalent — the CLI has no effects — so it is deliberately
