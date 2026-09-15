@@ -26,6 +26,7 @@
 
 import type { FrameData } from 'dvdrw';
 import type { GridSnapshot, RenderInput } from './render';
+import type { RenderResult } from './types';
 import {
   buildAnimation,
   framesFromSnapshots,
@@ -41,8 +42,10 @@ import type { CustomTheme } from '../stores/customThemesStore';
  *   render  — the original all-in-one path (cast, or a script with no
  *             pre-computed frames).
  *   frames  — hand the worker a set of frames produced elsewhere (the
- *             container run, which can only happen on the main thread)
- *             and keep them under `token`.
+ *             container run, which can only happen on the main thread),
+ *             keep them under `token`, and emit the SVG for them. The
+ *             emit lives here and not in the run because it is the part
+ *             that costs: emit + optimise + the vctrfx effect stack.
  *   reemit  — re-render those frames with new options. This is the whole
  *             point: a visual option change is an SVG re-emit (~1ms), not
  *             a re-execution of the user's shell commands.
@@ -55,7 +58,14 @@ type WorkerRequest =
       options: RenderOptions;
       customThemes: CustomTheme[];
     }
-  | { id: number; kind: 'frames'; token: string; frames: FrameData[] }
+  | {
+      id: number;
+      kind: 'frames';
+      token: string;
+      frames: FrameData[];
+      options: RenderOptions;
+      customThemes: CustomTheme[];
+    }
   | {
       id: number;
       kind: 'reemit';
@@ -94,12 +104,26 @@ let frameCache: {
   frames: FrameData[];
 } | null = null;
 
+const succeed = (id: number, result: RenderResult, notices: readonly string[] = []) =>
+  (self as unknown as Worker).postMessage({
+    id,
+    ok: true,
+    svg: result.svg,
+    width: result.width,
+    height: result.height,
+    frameCount: result.frameCount,
+    durationMs: result.durationMs,
+    notices: [...notices],
+  } satisfies WorkerSuccess);
+
 self.addEventListener('message', (event: MessageEvent<WorkerRequest>) => {
   const request = event.data;
   const { id } = request;
   try {
     if (request.kind === 'frames') {
       handedFrames = { token: request.token, frames: request.frames };
+      const theme = resolveTheme(request.options.theme, request.customThemes);
+      succeed(id, buildAnimation(request.frames, request.options, theme));
       return;
     }
 
@@ -108,17 +132,7 @@ self.addEventListener('message', (event: MessageEvent<WorkerRequest>) => {
         throw new Error('No frames held for this render.');
       }
       const theme = resolveTheme(request.options.theme, request.customThemes);
-      const result = buildAnimation(handedFrames.frames, request.options, theme);
-      (self as unknown as Worker).postMessage({
-        id,
-        ok: true,
-        svg: result.svg,
-        width: result.width,
-        height: result.height,
-        frameCount: result.frameCount,
-        durationMs: result.durationMs,
-        notices: [],
-      } satisfies WorkerSuccess);
+      succeed(id, buildAnimation(handedFrames.frames, request.options, theme));
       return;
     }
 
@@ -157,35 +171,14 @@ self.addEventListener('message', (event: MessageEvent<WorkerRequest>) => {
         frameCache = { source: input.source, themeKey, frames };
       }
 
-      const result = buildAnimation(frames, options, theme);
-      const response: WorkerSuccess = {
-        id,
-        ok: true,
-        svg: result.svg,
-        width: result.width,
-        height: result.height,
-        frameCount: result.frameCount,
-        durationMs: result.durationMs,
-        notices: [],
-      };
-      (self as unknown as Worker).postMessage(response);
+      succeed(id, buildAnimation(frames, options, theme));
       return;
     }
 
     // Script path — falls back to the all-in-one render. No cache
     // here yet; the interpreter state would need cacheing too.
     const result = renderInput(input, options, customThemes);
-    const response: WorkerSuccess = {
-      id,
-      ok: true,
-      svg: result.svg,
-      width: result.width,
-      height: result.height,
-      frameCount: result.frameCount,
-      durationMs: result.durationMs,
-      notices: result.notices,
-    };
-    (self as unknown as Worker).postMessage(response);
+    succeed(id, result, result.notices);
   } catch (err) {
     const response: WorkerFailure = {
       id,

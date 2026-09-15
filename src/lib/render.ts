@@ -1202,22 +1202,27 @@ export const framesForInput = (
 };
 
 /**
- * Async variant of `renderInput` for the mobile path: walks the script
- * with a ShellExecutor so typed commands actually run inside a
- * WebContainer (no dvd CLI installed there), then synthesizes the SVG
- * in-page using the same primitives.
+ * Async variant of the script interpreter: walks the script with a
+ * ShellExecutor so typed commands actually run inside a WebContainer
+ * (no dvd CLI installed there).
+ *
+ * Frames only — emitting the SVG is deliberately left to the caller so it
+ * can happen in the render worker. The executor forces this half onto the
+ * main thread (WebContainer has no worker-side handle), but `buildAnimation`
+ * has no such constraint, and it is the expensive half: emit + optimise +
+ * the whole vctrfx effect stack over the finished document.
  */
-export const renderScriptAsync = async (
+export const interpretScriptAsync = async (
   source: string,
   options: RenderOptions,
   executor: ShellExecutor,
   onProgress?: (done: number, total: number) => void,
-): Promise<RenderOutput> => {
+): Promise<{ frames: FrameData[]; notices: string[] }> => {
   const theme = resolveTheme(options.theme);
   const script = parseCDScript(source);
   const { cols, rows } = terminalGrid(options);
 
-  const { frames, notices } = await interpretAsync(
+  return interpretAsync(
     script.commands,
     cols,
     rows,
@@ -1226,8 +1231,6 @@ export const renderScriptAsync = async (
     onProgress,
     options.cursorVisible,
   );
-  const result = buildAnimation(frames, options, theme);
-  return { ...result, notices, frames };
 };
 
 export const renderInput = (

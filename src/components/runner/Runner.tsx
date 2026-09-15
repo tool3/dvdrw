@@ -123,14 +123,21 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
   const [logTick, setLogTick] = useState(0);
   const [svg, setSvg] = useState<string | null>(null);
 
-  // Visual option changes re-emit the last run's frames instead of
-  // re-running the container. See `useFrameRender`.
+  // Every SVG — the one for a fresh run and the ones for later visual
+  // option changes — is emitted in the worker from the run's frames, so
+  // neither a run nor a slider drag blocks the main thread. See
+  // `useFrameRender`.
   const { publish, reemit, hasFrames } = useFrameRender(
     useCallback((result) => {
       setSvg(result.svg);
       setDurationMs(result.durationMs);
+      setEmitting(false);
     }, []),
   );
+  // True between handing the run's frames to the worker and the SVG
+  // coming back. Without it the first run would drop to the placeholder
+  // card for the length of the emit, having just cleared `running`.
+  const [emitting, setEmitting] = useState(false);
   const [durationMs, setDurationMs] = useState<number>(0);
   const [frames, setFrames] = useState<FrameData[] | null>(null);
   const [exporting, setExporting] = useState(false);
@@ -258,17 +265,17 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
     }
     setRunning(true);
     setAutoQueued(false);
-    setSvg((prev) => prev); // keep previous result visible during the run
     resetLog();
     try {
       const result = await runScript(
         { source: sourceRef.current, options: optionsRef.current },
         { onLog: appendLog, onStage: handleStage },
       );
-      setSvg(result.svg);
-      setDurationMs(result.durationMs ?? 0);
-      setFrames(result.frames ?? null);
-      if (result.frames) publish(result.frames);
+      setFrames(result.frames);
+      // The SVG arrives from the worker via `publish`'s result callback —
+      // the previous one stays on screen until it does.
+      setEmitting(true);
+      publish(result.frames, optionsRef.current);
       if (!hasRunOnceRef.current) setHasRunOnce(true);
     } catch {
       // stage already updated to 'error' inside runScript
@@ -408,8 +415,8 @@ export const Runner = ({ source, filename = 'output.svg' }: RunnerProps) => {
   // first boot + npm install.
   const stageSpinner = (() => {
     if (svg) return null;
-    if (running) {
-      return { tone: 'running' as const, label: status };
+    if (running || emitting) {
+      return { tone: 'running' as const, label: emitting ? 'Drawing SVG…' : status };
     }
     if (isBooting) {
       return { tone: 'booting' as const, label: status };

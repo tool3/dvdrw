@@ -3,9 +3,9 @@
  *
  * Boots one shared instance, npm-installs dvdrw-cli + a curated demo toolkit
  * once per session, verifies the install, and exposes a single `runScript()`
- * entry point that writes the user's .cd file, runs `dvd <file>` with the
- * right flags, and returns the produced SVG bytes plus combined stdout/stderr
- * for the UI.
+ * entry point that walks the user's .cd script, executing each typed
+ * command inside the sandbox, and returns the resulting frames plus
+ * combined stdout/stderr for the UI.
  *
  * Browser support: Chromium-only (Safari/Firefox lack the WebAssembly +
  * SharedArrayBuffer combo WebContainers needs). The host page must serve
@@ -15,19 +15,17 @@
 import { WebContainer, type FileSystemTree } from '@webcontainer/api';
 import type { FrameData } from 'dvdrw';
 import type { RenderOptions } from '../stores/optionsStore';
-import { renderScriptAsync, type ShellExecutor } from './render';
+import { interpretScriptAsync, type ShellExecutor } from './render';
 
 export interface RunResult {
-  svg: string;
   log: string;
   exitCode: number;
-  /** Animation duration in ms — used by the MiniPlayer to size its
-   *  scrubber. Set by `renderScriptAsync`'s output; omitted when the
-   *  caller never goes through the in-page renderer. */
-  durationMs?: number;
-  /** Frames the SVG was built from, kept so MP4 export doesn't have to
-   *  re-run the container commands. */
-  frames?: FrameData[];
+  /** The run produces frames, not an SVG. Emitting the document is the
+   *  expensive part and belongs in the render worker — see
+   *  `useFrameRender`. Frames are also what MP4 export consumes, so it
+   *  never has to re-run the container commands. */
+  frames: FrameData[];
+  notices: string[];
 }
 
 export interface RunInput {
@@ -382,15 +380,13 @@ const runScriptInner = async (
       return { output: buffer, outputSpanMs: lastChunkAt - firstChunkAt };
     },
   };
-  const rendered = await renderScriptAsync(input.source, input.options, executor);
+  const { frames, notices } = await interpretScriptAsync(
+    input.source,
+    input.options,
+    executor,
+  );
   handlers.onStage('ready', 'Done');
-  return {
-    svg: rendered.svg,
-    log: '',
-    exitCode: 0,
-    durationMs: rendered.durationMs,
-    frames: rendered.frames,
-  };
+  return { log: '', exitCode: 0, frames, notices };
 };
 
 /* ------------------------------------------------------------------------- */

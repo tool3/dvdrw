@@ -14,14 +14,19 @@ export interface FrameRenderResult {
 }
 
 /**
- * Re-emit an already-captured set of frames with new options, off the main
+ * Emit — and later re-emit — an already-captured set of frames, off the main
  * thread.
  *
- * The container run can only happen on the main thread, but re-running it
- * for a colour change was executing the user's shell commands again to
- * produce pixels that don't depend on them. Frames are handed to the worker
- * once per run; every later visual change is a `buildAnimation` over those
- * frames — measured at well under a millisecond against ~1.2s for a rerun.
+ * The container run can only happen on the main thread, but nothing about
+ * turning its frames into an SVG needs to be there, and that is the part
+ * that costs: emit + optimise + the vctrfx effect stack over the finished
+ * document, long enough to lock the page on a real script. So the run hands
+ * over frames and the worker produces every SVG, the first one included.
+ *
+ * Re-running the container for a colour change would also be executing the
+ * user's shell commands again to produce pixels that don't depend on them,
+ * so later visual changes are a `buildAnimation` over the held frames —
+ * measured at well under a millisecond against ~1.2s for a rerun.
  */
 export const useFrameRender = (
   onResult: (result: FrameRenderResult) => void,
@@ -62,13 +67,20 @@ export const useFrameRender = (
     };
   }, []);
 
-  /** Hand over the frames from a completed run. */
-  const publish = useCallback((frames: FrameData[]) => {
+  /** Hand over the frames from a completed run and emit their SVG. */
+  const publish = useCallback((frames: FrameData[], options: RenderOptions) => {
     const worker = workerRef.current;
     if (!worker) return;
     const token = `f${++requestIdRef.current}`;
     tokenRef.current = token;
-    worker.postMessage({ id: requestIdRef.current, kind: 'frames', token, frames });
+    worker.postMessage({
+      id: requestIdRef.current,
+      kind: 'frames',
+      token,
+      frames,
+      options,
+      customThemes: customThemesRef.current,
+    });
   }, []);
 
   /** Re-emit the held frames. No-op until `publish` has run. */
