@@ -30,9 +30,7 @@ export const SCRIPT_EXAMPLES: ScriptExample[] = [
     id: 'chartscii',
     label: 'Chartscii',
     description: 'Runs a real command in the container and charts the output.',
-    source: `
-
-# Intro Demo
+    source: `# Intro Demo
 
 # Set FontSize 60
 # Set Template minimal
@@ -60,9 +58,7 @@ Sleep 3s
     label: 'Matrix scene',
     description: 'Typed dialogue on a neon theme. No shell needed.',
     mobileDefault: true,
-    source: `
-
-# Intro Demo
+    source: `# Intro Demo
 
 Set FontSize 20
 Set Template minimal
